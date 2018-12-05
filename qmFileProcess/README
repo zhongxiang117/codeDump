@@ -1,0 +1,17 @@
+MC/QM output file process to prepare for the further simulations
+The supported new file format is:
+
+Gaussian -- com file
+Gaussian -- pdb file
+XCrySDen -- xsf file
+
+In this example, to see help usage, execute;
+
+python[3] qmFileProcess.py -h
+
+
+A file for test;
+
+python[3] qmFileProcess.py -f qm.txt-backup -nm 23 
+
+
