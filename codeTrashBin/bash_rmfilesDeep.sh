@@ -4,6 +4,7 @@
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #   Version 0.2   :   Deep cleaning based on MAE
 #   Version 0.3   :   More robust dealing with resuming, check Help Usage
+#   Versino 0.31  :   Suppress non-necessary printing in normal processing
 #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 
@@ -218,6 +219,7 @@ do
 
     if [[ -d Training_$x1 ]]
     then
+        if (( $(ls Training_$x1/ | wc -l) <= 0 )); then continue; fi
         echo ''
         echo "Note: Deep Processing Training_$x1"
         cd Training_$x1
@@ -266,11 +268,13 @@ echo ''
 for td in $(ls | grep 'Training_')
 do
     if ! [[ -d $td ]]; then continue; fi
+    if (( $(ls $td/ | wc -l) <= 0 )); then continue; fi
     echo "Processing $td"
     cd $td
     for fdir in $(ls | grep "Gas_")
     do
         if ! [[ -d $fdir ]]; then continue; fi
+        if (( $(ls $fdir/ | wc -l) <= 0 )); then continue; fi
         echo "Processing $fdir"
         cd $fdir
         rm -f mdout* \#mdout* energy*
@@ -283,6 +287,7 @@ do
     for fdir in $(ls | grep "Liquid_")
     do
         if ! [[ -d $fdir ]]; then continue; fi
+        if (( $(ls $fdir/ | wc -l) <= 0 )); then continue; fi
         echo "Processing $fdir"
         cd $fdir
         rm -f mdout* \#mdout* energy*
@@ -295,6 +300,7 @@ do
     for fdir in $(ls | grep "FEP_")
     do
         if ! [[ -d $fdir ]]; then continue; fi
+        if (( $(ls $fdir/ | wc -l) <= 0 )); then continue; fi
         echo "Processing $fdir"
         cd $fdir
         rm -f bar_result.txt
