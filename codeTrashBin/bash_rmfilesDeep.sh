@@ -1,11 +1,14 @@
 #!/bin/bash
 
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#   Note: the < #   PAIR_ > is used to identify training blocks
+#
 #   Version 0.2   :   Deep cleaning based on MAE
 #   Version 0.3   :   More robust dealing with resuming, check Help Usage
 #   Versino 0.31  :   Suppress non-necessary printing in normal processing
-#&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+#   Version 0.4   :   Remove empty folders, and reset MAE=0.2
+#&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 
 # Files to be used as reference
@@ -90,31 +93,51 @@ KEYWORD=MAE
 echo "Note: Setting processing file to < $FILE >..."
 echo "Note: Setting Keyword to < $KEYWORD >..."
 
-content=($(cat $FILE | grep '^PAIR' | head -n 1))
+
+
+# Now get each Training PAIR numbers
+ndxstr=$(sed -n '/\#\ *PAIR_/=' $FILE)
+if [[ -z "$ndxstr" ]]; then { echo "Fatal Error: cannot get < gennm >"; exit 1; } fi
+
+# Add the total number of lines
+tot=$(cat $FILE | wc -l)
+ndxlist=( $ndxstr $tot )
+
+
+# lenndx: the length of each PAIR
+content=($(sed -n "${ndxlist[0]},\$p" $FILE | grep '^PAIR' | head -n 1))
 lenndx=${#content[*]}
 
-if (( $lenndx == 0 )); then { echo "Error: invalid input file < $FILE >"; exit 0; } fi
+if (( $lenndx == 0 )); then { echo "Fatal Error: invalid input file < $FILE >"; exit 0; } fi
 
+# ndx: the index number of MAE value in echo PAIR line
 for ((ndx=0; $ndx < $lenndx; ndx++))
 do
     if [[ ${content[$ndx]} == $KEYWORD ]]; then break; fi
 done
 ((ndx++))
 
+if (($ndx >= $lenndx)); then { echo "Fatal Error: No KEYWORD=$KEYWORD is found"; exit 1; } fi
 
-content=($(cat $FILE | grep '^PAIR'))
-lentot=${#content[*]}
-
-if (( $lentot == 0 )); then { echo "Error: no inputs after processing for < $FILE >"; exit 0; } fi
 
 data=''
+content=($(sed -n "${ndxlist[0]},\$p" $FILE | grep '^PAIR'))
+lentot=${#content[*]}
 for ((i=$ndx; $i<$lentot; i=$i+$lenndx))
 do
-    data="$data ${content[$i]}"
+    tmp=$(echo ${content[$i]} | tr [A-Z] [a-z])
+    if [[ $tmp != 'nan' && ! $tmp =~ ^[+-]?([0-9]*[.])?([0-9]+)?$ ]]
+    then
+        echo "Fatal Error: Invalid $KEYWORD value in line"
+        for ((j=$i-$ndx; $j < $i - $ndx + $lenndx; j++)); do echo -n "${content[$j]}  "; done
+        echo ''
+        exit 1
+    fi
+    data="$data $tmp"
 done
 
 
-# Process data: only MAE <= 0.3 will be left
+# Process data: only MAE <= 0.2 will be left
 # refstr  :  index number to be removed
 # Tip: let < cnt > starting at zero
 cnt=0
@@ -122,27 +145,19 @@ refstr=''
 for i in $data
 do
     ((cnt++))
-    if [[ $i == 'NaN' ]]; then { refstr="$refstr $cnt"; continue; } fi
+    if [[ $i == 'nan' ]]; then { refstr="$refstr $cnt"; continue; } fi
 
-    tmp=$(echo "0.3 - $i" | bc -l | grep '-')
+    tmp=$(echo "0.2 - $i" | bc -l | grep '-')
     if [[ -n "$tmp" ]]; then refstr="$refstr $cnt"; fi
 done
 
-
-# Now get each Training PAIR numbers
-ndxstr=$(sed -n '/\#\ *PAIR/=' $FILE)
-
-if [[ -z "$ndxstr" ]]; then { echo "Fatal Error: cannot get < gennm >"; exit 1; } fi
-
-# Add the total number of lines
-tot=$(cat $FILE | wc -l)
-ndxlist=( $ndxstr $tot )
 
 # Add Checking
 tmp=$(sed -n "${ndxlist[0]}p" $FILE)
 tmp=${tmp//*_}
 tmp=${tmp%.*}
-chkstr="$tmp"
+tmp=${tmp:=10000}
+chklist=($tmp)
 
 # Each Training's gennm
 nmlist=()
@@ -158,19 +173,22 @@ do
     tmp=$(sed -n "${vi}p" $FILE)
     tmp=${tmp//*_}
     tmp=${tmp%.*}
-    chkstr="$chkstr $tmp"
+    tmp=${tmp:=10000}
+    chklist+=($tmp)
 done
 
 # Checking < gennm >
-cnt=1
-for i in $chkstr
+# Because ndxlist contains the total number of lines of the FILE, remove it
+((j = ${#chklist[*]} - 1))
+for ((cnt=0; $cnt < $j; cnt++))
 do
-    if [[ $i != $cnt ]]
+    ((cmp=$cnt+1))
+    if [[ ${chklist[$cnt]} != $cmp ]]
     then
-        echo "Fatal Error: < gennm > is not correctly identified in resuming file < $FILE >"
+        echo "Fatal Error: < gennm > is not correctly identified in file < $FILE >"
+        echo "             $(sed -n "${ndxlist[$cnt]}p" $FILE)"
         exit 1
     fi
-    ((cnt++))
 done
 
 
@@ -220,19 +238,16 @@ do
     if [[ -d Training_$x1 ]]
     then
         if (( $(ls Training_$x1/ | wc -l) <= 0 )); then continue; fi
-        echo ''
-        echo "Note: Deep Processing Training_$x1"
         cd Training_$x1
         ftmp=Gas_$x2 
-        if [[ -d $ftmp ]]; then { echo "Note: Removing $ftmp"; rm -rf $ftmp; } fi
+        if [[ -d $ftmp ]]; then { echo "Note: Deep Processing Training_$x1 Removing $ftmp"; rm -rf $ftmp; } fi
 
         ftmp=Liquid_$x2 
-        if [[ -d $ftmp ]]; then { echo "Note: Removing $ftmp"; rm -rf $ftmp; } fi
+        if [[ -d $ftmp ]]; then { echo "Note: Deep Processing Training_$x1 Removing $ftmp"; rm -rf $ftmp; } fi
 
         ftmp=FEP_$x2 
-        if [[ -d $ftmp ]]; then { echo "Note: Removing $ftmp"; rm -rf $ftmp; } fi
+        if [[ -d $ftmp ]]; then { echo "Note: Deep Processing Training_$x1 Removing $ftmp"; rm -rf $ftmp; } fi
         cd ../
-        echo ''
     fi
 done
 echo ''
@@ -262,20 +277,23 @@ do
 done
 rm -rf Topfile_*
 echo ''
-echo ''
 
 
 for td in $(ls | grep 'Training_')
 do
     if ! [[ -d $td ]]; then continue; fi
-    if (( $(ls $td/ | wc -l) <= 0 )); then continue; fi
-    echo "Processing $td"
+    if (( $(ls $td/ | wc -l) <= 0 ))
+    then
+        echo "Note: Removing Empty Folder $td"
+        rmdir $td 
+        continue
+    fi
     cd $td
     for fdir in $(ls | grep "Gas_")
     do
         if ! [[ -d $fdir ]]; then continue; fi
         if (( $(ls $fdir/ | wc -l) <= 0 )); then continue; fi
-        echo "Processing $fdir"
+        echo "Note: Processing $td Cleaning $fdir"
         cd $fdir
         rm -f mdout* \#mdout* energy*
         rm -f step* \#step*
@@ -288,7 +306,7 @@ do
     do
         if ! [[ -d $fdir ]]; then continue; fi
         if (( $(ls $fdir/ | wc -l) <= 0 )); then continue; fi
-        echo "Processing $fdir"
+        echo "Note: Processing $td Cleaning $fdir"
         cd $fdir
         rm -f mdout* \#mdout* energy*
         rm -f step* \#step*
@@ -301,13 +319,13 @@ do
     do
         if ! [[ -d $fdir ]]; then continue; fi
         if (( $(ls $fdir/ | wc -l) <= 0 )); then continue; fi
-        echo "Processing $fdir"
+        echo "Note: Processing $fdir Cleaning:"
         cd $fdir
         rm -f bar_result.txt
         for dt in $(ls | grep "init_")
         do
             if ! [[ -d $dt ]]; then continue; fi
-            echo -n "Processing $dt   "
+            echo -n "      $dt"
             cd $dt
             rm -f mdout* \#mdout* energy*
             rm -f step* \#step*
@@ -321,13 +339,12 @@ do
     done
     cd ../
     echo ''
-    echo ''
 done
 
 
 if [[ -d originFile ]]
 then
-    echo "Processing originFile"
+    echo "Note: Processing originFile"
     cd originFile
     rm -f grompp*
     rm -f *top *gro
@@ -342,17 +359,17 @@ then
             rm -f mdout* \#mdout* step* \#step* energy*
             if [[ -n $(echo $i | grep "Gas") ]]
             then
-                echo "Processing originFile/Gas"
+                echo "Note: Processing originFile/Gas"
                 rm -f gas_min*
                 rm -f gas_prod.cpt gas_prod.edr gas_prod.log gas_prod.trr
             elif [[ -n $(echo $i | grep "Liquid") ]]
             then
-                echo "Processing originFile/Liquid"
+                echo "Note: Processing originFile/Liquid"
                 rm -f liq_min* liq_npt*
                 rm -f liq_prod.cpt liq_prod.trr liq_prod.log
             elif [[ -n $(echo $i | grep "FEP") ]]
             then
-                echo "Processing originFile/FEP"
+                echo "Note: Processing originFile/FEP"
                 rm -f bar_result.txt
                 for j in $(ls)
                 do
@@ -365,7 +382,7 @@ then
                     cd ../
                 done
             else
-                echo "Unknown Folder $i"
+                echo "Warning: Unknown Folder $i"
             fi
             cd ../
         done
@@ -374,6 +391,5 @@ then
     cd ../
 fi
 
-
-echo ""
+echo ''
 echo "Everything is DONE"
