@@ -7,18 +7,22 @@
 #   Version 0.2   :   Deep cleaning based on MAE
 #   Version 0.3   :   More robust dealing with resuming, check Help Usage
 #   Versino 0.31  :   Suppress non-necessary printing in normal processing
-#   Version 0.4   :   Remove empty folders, and reset MAE=0.2
+#   Version 0.4   :   Remove empty folders, and reset MAEFILTER=0.2
+#   Version 0.41  :   Reset MAEFILTER=0.12
+#   Version 0.5   :   Remove unnecessary RESULT & PAIR files
 #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 
 # Files to be used as reference
 FILE=MAE_PAIR_total.txt
+MAEFILTER=0.12
 
 #
 # END of user inputs
 #
 
 FILE=${FILE:=MAE_PAIR_total.txt}
+MAEFILTER=${MAEFILTER:=0.12}
 
 HELP_argument="Usage:    $0 [FILE]
 
@@ -137,7 +141,7 @@ do
 done
 
 
-# Process data: only MAE <= 0.2 will be left
+# Process data: only MAE less than MAEFILTER will be left
 # refstr  :  index number to be removed
 # Tip: let < cnt > starting at zero
 cnt=0
@@ -147,7 +151,7 @@ do
     ((cnt++))
     if [[ $i == 'nan' ]]; then { refstr="$refstr $cnt"; continue; } fi
 
-    tmp=$(echo "0.2 - $i" | bc -l | grep '-')
+    tmp=$(echo "$MAEFILTER - $i" | bc -l | grep '-')
     if [[ -n "$tmp" ]]; then refstr="$refstr $cnt"; fi
 done
 
@@ -285,7 +289,7 @@ do
     if (( $(ls $td/ | wc -l) <= 0 ))
     then
         echo "Note: Removing Empty Folder $td"
-        rmdir $td 
+        rmdir $td
         continue
     fi
     cd $td
@@ -390,6 +394,60 @@ then
     fi
     cd ../
 fi
+
+
+# Now removing PAIR and RESULT files
+# Note: this function is dependent on the top processing
+# it first will check which Training_cnt is left
+# and then based on those "cnt" numbers, remove others
+#
+# Warning: this part is very dangerous, because any processed
+# REMOVEKEY file is not a number will be removed, so the checking
+# operation between winstr and REMOVEKEY is very important!
+# The winstr has to be a number string-array, or all the REMOVEKEY
+# will be finially removed!
+winstr=''
+for i in $(ls | grep 'Training_'); do { t=${i//*_}; winstr="$winstr $t"; } done
+
+echo ''
+REMOVEKEY='RESULT_EHD_'
+for i in $(ls | grep "$REMOVEKEY")
+do
+    bool_remove=true
+    for j in $winstr
+    do
+        if [[ $i == "${REMOVEKEY}${j}.txt" ]]; then { bool_remove=false; break; } fi
+    done
+
+    # double check
+    if $bool_remove
+    then
+        t=${i//*_}
+        t=${t%.*}
+        if [[ $t =~ ^[0-9]+$ ]]; then { echo "Note: Removing file $i"; rm -f $i; } fi
+    fi
+done
+
+echo ''
+REMOVEKEY='PAIR_Charge_'
+for i in $(ls | grep "$REMOVEKEY")
+do
+    bool_remove=true
+    for j in $winstr
+    do
+        if [[ $i == "${REMOVEKEY}${j}.txt" ]]; then { bool_remove=false; break; } fi
+    done
+
+    # double check
+    if $bool_remove
+    then
+        t=${i//*_}
+        t=${t%.*}
+        if [[ $t =~ ^[0-9]+$ ]]; then { echo "Note: Removing file $i"; rm -f $i; } fi
+    fi
+done
+
+
 
 echo ''
 echo "Everything is DONE"
