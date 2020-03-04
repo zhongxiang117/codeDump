@@ -10,12 +10,16 @@
 #   Version 0.4   :   Remove empty folders, and reset MAEFILTER=0.2
 #   Version 0.41  :   Reset MAEFILTER=0.12
 #   Version 0.5   :   Remove unnecessary RESULT & PAIR files
+#   Version 0.51  :   Fix v0.5 by adding bool_rmfiles
 #&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 
 # Files to be used as reference
 FILE=MAE_PAIR_total.txt
 MAEFILTER=0.12
+
+# Remove PAIR & MAE files, it can only be set to true when training is done
+bool_rmfiles=false
 
 #
 # END of user inputs
@@ -70,8 +74,8 @@ fi
 
 cwd=$(pwd)
 mol=${cwd//*\/}
-echo "Note: Processing molecule: $mol"
-echo "Note: do you want to continue? y/yes, else not"
+echo "Note: Processing molecule: < $mol >"
+echo "Note: Do you want to continue? y/yes, else not"
 
 read tmp
 if [[ -z "$tmp" || ! ( "$tmp" == 'yes' || "$tmp" == 'y' ) ]]
@@ -82,8 +86,7 @@ fi
 
 if [[ -z $(ls | grep '.err') ]]
 then
-    echo "Warning: it seems the simulation is not done"
-    echo "Do you REALLY want to continue? y/yes, else not"
+    echo "Warning: it seems the simulation is NOT done yet. Do you REALLY want to continue? y/yes, else not"
     read tmp
     if [[ -z "$tmp" || ! ( "$tmp" == 'yes' || "$tmp" == 'y' ) ]]
     then
@@ -91,12 +94,6 @@ then
         exit 0
     fi
 fi
-
-
-KEYWORD=MAE
-echo "Note: Setting processing file to < $FILE >..."
-echo "Note: Setting Keyword to < $KEYWORD >..."
-
 
 
 # Now get each Training PAIR numbers
@@ -113,6 +110,26 @@ content=($(sed -n "${ndxlist[0]},\$p" $FILE | grep '^PAIR' | head -n 1))
 lenndx=${#content[*]}
 
 if (( $lenndx == 0 )); then { echo "Fatal Error: invalid input file < $FILE >"; exit 0; } fi
+
+
+bool_rmfiles=${bool_rmfiles:=false}
+if $bool_rmfiles
+then
+    if [[ -z "$(grep '^HEAD' $FILE)" ]]
+    then
+        echo "Warning: The training is NOT done yet. Do you Really want to remove all the files? y/yes, else quit"
+        read tmp
+        if [[ -z "$tmp" || ! ( "$tmp" == 'y' || "$tmp" == 'yes' ) ]]
+        then
+            echo "You decided to quit..."
+            exit 0
+        fi
+    fi
+fi
+
+KEYWORD=MAE
+echo "Note: Setting processing file to < $FILE >..."
+echo "Note: Setting Keyword to < $KEYWORD >..."
 
 # ndx: the index number of MAE value in echo PAIR line
 for ((ndx=0; $ndx < $lenndx; ndx++))
@@ -410,7 +427,7 @@ winstr=''
 for i in $(ls | grep 'Training_'); do { t=${i//*_}; winstr="$winstr $t"; } done
 
 echo ''
-REMOVEKEY='RESULT_EHD_'
+REMOVEKEY='RST_EHD_'
 for i in $(ls | grep "$REMOVEKEY")
 do
     bool_remove=true
@@ -428,25 +445,49 @@ do
     fi
 done
 
-echo ''
-REMOVEKEY='PAIR_Charge_'
-for i in $(ls | grep "$REMOVEKEY")
-do
-    bool_remove=true
-    for j in $winstr
+if $bool_rmfiles
+then
+    echo ''
+    REMOVEKEY='PAIR_Charge_'
+    for i in $(ls | grep "$REMOVEKEY")
     do
-        if [[ $i == "${REMOVEKEY}${j}.txt" ]]; then { bool_remove=false; break; } fi
+        bool_remove=true
+        for j in $winstr
+        do
+            if [[ $i == "${REMOVEKEY}${j}.txt" ]]; then { bool_remove=false; break; } fi
+        done
+    
+        # double check
+        if $bool_remove
+        then
+            t=${i//*_}
+            t=${t%.*}
+            if [[ $t =~ ^[0-9]+$ ]]; then { echo "Note: Removing file $i"; rm -f $i; } fi
+        fi
     done
 
-    # double check
-    if $bool_remove
-    then
-        t=${i//*_}
-        t=${t%.*}
-        if [[ $t =~ ^[0-9]+$ ]]; then { echo "Note: Removing file $i"; rm -f $i; } fi
-    fi
-done
+    echo ''
+    REMOVEKEY='MAE_PAIR_'
+    for i in $(ls | grep "$REMOVEKEY")
+    do
+        # Warning keep MAE_PAIR_total.txt file
+        if [[ -n "$(echo $i | grep -i "total")" ]]; then continue; fi
 
+        bool_remove=true
+        for j in $winstr
+        do
+            if [[ $i == "${REMOVEKEY}${j}.txt" ]]; then { bool_remove=false; break; } fi
+        done
+    
+        # double check
+        if $bool_remove
+        then
+            t=${i//*_}
+            t=${t%.*}
+            if [[ $t =~ ^[0-9]+$ ]]; then { echo "Note: Removing file $i"; rm -f $i; } fi
+        fi
+    done
+fi
 
 
 echo ''

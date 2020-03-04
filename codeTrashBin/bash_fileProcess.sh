@@ -1,13 +1,27 @@
 #!/bin/bash
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#   version 0.2: process files, mkdir; and rename them to MOL.*
-#
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# version 0.20  :  process files, mkdir; and rename them to MOL.*
+# version 0.30  :  backup original file and prepare for simulation
 #
 
+# contents in FILE to be processed
 FILE=files
 
 
+# Folder storing original files
+FLPG=LigParGen
+
+# Folder storing processed files
+FMOL=FMOL
+
+# run files in copy folders
+FCOPY=SelectedFiles
+
+
+#
+# End of user inputs
+#
 
 nmargv=$#
 
@@ -29,117 +43,95 @@ else
     exit 1
 fi
 
+if [[ ! -f $FILE ]]; then { echo "Note: FILE < $FILE > does not exist"; exit 1; } fi
+if [[ ! -d $FMOL ]]; then mkdir $FMOL; fi
+if [[ ! -d $FLPG ]]; then mkdir $FLPG; fi
+if (( $(ls $FMOL | wc -l) > 0 )); then { echo "Folder < $FMOL > has to be empty"; exit 1; } fi
+
+
 content=''
 for f in $(cat $FILE)
 do
     if [[ -f $f ]]
     then
-        name=${f%.*}
-        content="$content $name"
-        ext=${f/*.}
-
-        if [[ -z "$ext" ]]; then { echo "Error: wrong file extension"; continue; } fi
-
-        echo "Note: Processing $f"
-        sed -i 's/UNK/MOL/' $f
-
-        if [[ $ext == pdb ]]
-        then
-            sed -i '/^CONECT/d; /^TER/d' $f
-        fi
-
-        if [[ $ext == itp ]]
-        then
-            nm=$(sed -n '/\[ pairs \]/=' $f)
-            if [[ -n "$nm" ]]
-            then
-                sed -i "$nm,\$d" $f
-            fi
-
-            # double check
-            while read -r line
-            do
-                pl=($line)
-                if (( ${#pl[*]} == 3 ))
-                then
-                    bo=true
-                    for i in ${pl[*]}
-                    do
-                        if ! [[ $i =~ ^[0-9]+$ ]]
-                        then
-                            bo=false
-                            break
-                        fi
-                    done
-                    if $bo
-                    then
-                        echo "Error: on processing $f"
-                        echo ''
-                        echo "Error Line: $line"
-                        echo ''
-                        break
-                    fi
-                fi
-            done < $f
-        fi
+        content="$content $f"
     else
-        echo "Warning: $f does not exist"
+        echo "Warning: file < $f > does not exist"
     fi
 done
-
-if [[ -z "$content" ]]; then { echo "Error: no inputs"; exit 1; } fi
-
-content=($content)
-unicontent="${content[0]}"
-for ((i=1; $i<${#content[*]}; i++))
+content=($(echo "$content" | sort))
+unicontent=""
+for ((i=0; $i<${#content[*]}; i=$i+2))
 do
     bo=true
-    for ((j=0; $j<$i; j++))
-    do
-        if [[ ${content[$j]} == ${content[i]} ]]
-        then
-            bo=false
-            break
-        fi
-    done
-    if $bo; then unicontent="$unicontent ${content[$i]}"; fi
+    fa=${content[$i]}
+    fa_name=${fa%.*}
+    fa_ext=${fa/*.}
+
+    ((j=$i+1))
+    fb=${content[$j]}
+    fb_name=${fb%.*}
+    fb_ext=${fb/*.}
+
+    if [[ "$fa_name" != "$fb_name" ]]; then { echo "Warning: file errors for < $fa > and < $fb >"; continue; } fi
+    if [[ ( "$fa_ext" == 'itp' || "$fb_ext" == 'pdb' ) || ( "$fa_ext" == "pdb" || "$fb_ext" == 'itp' ) ]]
+    then
+        unicontent="$unicontent $fa_name"
+    else
+        echo "Warning: file errors for < $fa > and < $fb >"
+    fi
 done
 
-# move files to its directory
-for fnm in $unicontent
+
+# backup and processing
+for f in $unicontent
 do
-    if ! [[ -d $fnm ]]
+    itp=${f}.itp
+    pdb=${f}.pdb
+
+    echo "Note: Processing < ${f} itp/pdb >"
+
+    if [[ -d $FLPG/$f ]]
     then
-        mkdir $fnm
-        mv $fnm\.* $fnm/
+        echo "Warning: Folder < $FLPG/$f > already exists"
+        cnt=1
+        while true
+        do
+            if [[ ! -d $FLPG/${f}_$cnt ]]; then break; fi
+            ((cnt++))
+        done
+        foriginal=$FLPG/${f}_$cnt
+    else
+        foriginal=$FLPG/${f}
     fi
+    echo "Note: Moving files < $f > to Folder < $foriginal >"
+    mkdir $foriginal
+    cp $itp $pdb $foriginal
+
+    sed -i 's/UNK/MOL/' $itp
+    sed -i 's/UNK/MOL/' $pdb
+
+    sed -i '/^CONECT/d; /^TER/d' $pdb
+
+    nm=($(sed -n '/\[ pairs \]/=' $itp))
+    if [[ -n "${nm[0]}" ]]
+    then
+        sed -i "${nm[0]},\$d" $itp
+    fi
+
+
+    mkdir $FMOL/$f
+    mv $itp $FMOL/$f/MOL.itp
+    mv $pdb $FMOL/$f/MOL.pdb
+
+    cp $FCOPY/* $FMOL/$f
+
+    echo "$f"  >> NEWfiles
 done
 
-# rename file name
-for dir in $unicontent
-do
-    cd $dir
-    if [[ -f $dir.itp ]]
-    then
-        if ! [[ -f MOL.itp ]]; then mv $dir.itp MOL.itp; fi
-    fi
-
-    if [[ -f $dir.pdb ]]
-    then
-        if ! [[ -f MOL.pdb ]]; then mv $dir.pdb MOL.pdb; fi
-    fi
-
-    if [[ -f $dir.gro ]]
-    then
-        if ! [[ -f MOL.gro ]]; then mv $dir.gro MOL.gro; fi
-    fi
-    cd ../
-
-	echo "$dir" >> NEWfiles
-done
-
-
-
+echo '' >> NEWfiles
+echo '' >> NEWfiles
+echo '' >> NEWfiles
 
 echo ''
 echo "Done Everything"
