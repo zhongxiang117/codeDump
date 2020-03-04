@@ -1,0 +1,46 @@
+#!/bin/bash -e
+
+# Note: it is a script to solve Ubuntu 18.04 LTS 
+#       different version of python compiling
+#       header confilcation problems
+#
+# The idea is got from @JustAnotherArivist
+# From URL: https://github.com/pyenv/pyenv/issues/945
+#
+# The script used in here is with slighly modifications
+# to fit many different SSL header versions
+
+
+# First under your home directory make OpenSSL library
+# and extract useful package
+
+mkdir ~/libssl1.0-dev
+cd ~/libssl1.0-dev
+apt-get download libssl1.0-dev
+ar x libssl1.0-dev* data.tar.xz
+tar -xf data.tar.xz --strip-components=2
+
+
+# Second, specifically get your current system's SSL headers
+# and make symbolic-links
+
+libcrypto=$(ls /usr/lib/x86_64-linux-gnu/ | grep libcrypto.so......)
+libssl=$(ls /usr/lib/x86_64-linux-gnu/ | grep libssl.so......)
+
+ln -s /usr/lib/x86_64-linux-gnu/${libcrypto} ~/libssl1.0-dev/lib/x86_64-linux-gnu
+ln -s /usr/lib/x86_64-linux-gnu/${libssl} ~/libssl1.0-dev/lib/x86_64-linux-gnu
+
+
+# Set your CFLAGS LDFLAGS compile options
+# And use pyenv install the python version <3.4.5 or <3.5.3
+
+# Note: it is a one line command
+CFLAGS="-I${HOME}/libssl1.0-dev/include -I${HOME}/libssl1.0-dev/include/x86_64-linux-gnu" \
+LDFLAGS="-L${HOME}/libssl1.0-dev/lib/x86_64-linux-gnu" \
+pyenv install 3.5.2
+
+
+# Remove tempor libssl1.0-dev direcotory
+rm -rf ~/libssl1.0-dev
+
+
