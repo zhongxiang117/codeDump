@@ -1,0 +1,109 @@
+{
+
+    //code-runner
+    //Python
+    //vscode-icon
+    //Visual Studio IntelliCode
+    //reStructuredText -- extension
+    //indenticator
+    //indent-rainbow
+    //Bracker Pair Colorizer
+    //
+    //Browser Preview
+    //Live Server
+    //Debugger for Chrome -- extension
+    //JavaScript (ES6) code snippets
+    //
+    //Java Extension Pack
+    //Language Support for Java
+
+
+    //Shortcuts
+    //  Debug: Start Debugging -- NONE
+    //  Soft Undo -- NONE
+    //  cursorWordEndRight -- NONE
+    //  Run Code -- F5
+    //  cursorLineEnd -- Ctrl + E
+    //  deleteWordLeft -- Ctrl + W
+    //  deleteWordStartLeft -- Ctrl + U
+    //  insert line below  -- Shift Enter
+
+    // windows only
+    "terminal.integrated.shell.windows": 
+        "C:\\Users\\11704\\AppData\\Local\\Microsoft\\WindowsApps\\ubuntu1804.exe",
+    
+    "editor.suggestSelection": "first",
+    "editor.insertSpaces": true,
+    "editor.renderIndentGuides": true,
+    "editor.minimap.enabled": true,
+    "editor.renderWhitespace": "all",
+    "editor.fontSize": 18,
+    "editor.quickSuggestions": {
+        "other": true,
+        "comments": true,
+        "strings": true,
+    },
+
+    // File Association
+    //modern fortran -- extension 
+    "files.associations": {
+        "*.csh": "shellscript",
+        "*.f":"fortran_fixed-form",
+    },
+    "[fortran_fixed-form]": {
+        "editor.tabSize": 3,
+        "editor.rulers": [5,6,72,80],
+    },
+    // code-runner for fortran77
+    "code-runner.executorMapByFileExtension": {
+        ".f": "cd $dir && gfortran $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt",
+    },
+
+
+    // Language python -- extension
+    "python.pythonPath": "C:/python/python.exe",
+    "python.languageServer": "Microsoft",
+    "code-runner.runInTerminal": true,
+    "code-runner.executorMap": {
+        "python": "python",
+    },
+
+
+    //matlab
+    //"matlab.matlabpath": "/usr/local/MATLAB/R2016b/bin/matlab",
+    //"matlab.mlintpath": "/usr/local/MATLAB/R2016b/bin/glnxa64/mlint",
+
+
+    // indenticator -- extension
+    "indenticator.showHighlight": false,
+    "indenticator.width": 1,
+    "indenticator.color.dark": "#ff0000",
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features",
+    },
+
+
+    "explorer.confirmDelete": false,
+    "update.mode": "manual",
+    "extensions.autoCheckUpdates": false,
+    "extensions.autoUpdate": false,
+    "vsicons.dontShowNewVersionMessage": true,
+    "update.enableWindowsBackgroundUpdates": false,
+    "extensions.ignoreRecommendations": false,
+    "workbench.iconTheme": "vscode-icons",
+    "indentRainbow.excludedLanguages": [
+        "plaintext",
+        "html",
+    ],
+
+
+    "java.home": "C:\\Program Files\\AdoptOpenJDK\\jdk-11.0.8.10-hotspot",
+    "java.semanticHighlighting.enabled": true,
+    "java.configuration.checkProjectSettingsExclusions": false,
+
+    //"liveServer.settings.CustomBrowser": "chrome",
+    "liveServer.settings.useBrowserPreview": true,
+    "liveServer.settings.donotShowInfoMsg": true,
+
+
+}
