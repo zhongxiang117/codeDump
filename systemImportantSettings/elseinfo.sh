@@ -89,10 +89,22 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #       Command/    --> REG_SZ{KEY_PATH_TO_EXE,"%1"}
 #       Icon        --> REG_SZ{.exe,.ico}
 #       Position    --> REG_SZ{top,bottom}
-#
+
+
 # Remove SkyDrive Pro in Context menu
 #   Under      < HKEY_CLASSES_ROOT\AllFilesystemObjects\shell >
 #   Delete key < SPFS.ContextMenu >
+
+
+# add git ssh-key
+#
+# cmd: ssh-keygen -t rsa -C "email@addr.com"
+# default under < .ssh/ > will have files < id_rsa > (private) & < id_rsa.pub > (public)
+# paste content in file < id_rsa.pub > to git account
+#
+# cmd: ssh-agent
+#      $? --> 0 running with passpharse, 1 running without passpharse, 2 not running
+# cmd: ssh-add
 
 
 
