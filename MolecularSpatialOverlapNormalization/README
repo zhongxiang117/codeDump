@@ -1,0 +1,29 @@
+Files explanation:
+
+Image-jgp:
+        Procedures show how to use VMD play animation
+
+mSON-py:
+        Python3 script, for more information, please check its usage by using "python3 mSON.py -h"
+
+
+example-inputFile-Back-qm.txt:
+    Test File Format: txt
+        Backup coordinates file from long time simulation at 1.50-1.55
+
+
+example-inputFile-BPYR_NTF2_prod.gro:
+    Test File Format: gro
+        MD 40 ns production file, use for testing.
+
+        
+example-inputFile-ethylammoniumCl-acetamide.pdb
+    Test File Format: pdb
+
+
+
+
+
+Overlap.xyz:
+    Processed Overlap Normalization file, only the Accepted Solute Move are included. Ready to use playing animation.
+
