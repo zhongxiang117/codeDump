@@ -54,10 +54,14 @@
         "editor.tabSize": 3,
         "editor.rulers": [5,6,72,80],
     },
-    // code-runner for fortran77
-    "code-runner.executorMapByFileExtension": {
-        ".f": "cd $dir && gfortran $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt",
-    },
+
+    //code file map
+    "code-runner.executorMap":{
+        "fortran_fixed-form": "cd $dir && gfortran $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt",
+        "java": "cd $dir && javac $fileName && CLASSPATH=$CLASSPATH:$workspaceRoot; java $fileNameWithoutExt",
+        "c": "cd $dir && gcc $fileName -o $fileNameWithoutExt && $dir$fileNameWithoutExt",
+        "python": "python3.5",
+    }, 
 
 
     // Language python -- extension

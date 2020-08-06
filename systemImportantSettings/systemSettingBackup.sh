@@ -10,6 +10,7 @@
 
 
 VSCODE_PATH="/mnt/c/Users/11704/AppData/Roaming/Code/User"
+VSCODE_PATH="/home/xiang/.config/Code/User"
 
 VSCODE_PATH_FILE_SNIPPETS="${VSCODE_PATH}/snippets/globalSnippets.code-snippets"
 VSCODE_PATH_FILE_KEYBINDINGS="${VSCODE_PATH}/keybindings.json"
@@ -88,7 +89,7 @@ func_copyfiles() {
             cp ${fpath} .
         fi
     else
-        echo "Warning: FILE < $VSCODE_PATH_FILE_KEYBINDINGS > not exist"
+        echo "Warning: FILE < $fpath > not exist"
     fi
 }
 
