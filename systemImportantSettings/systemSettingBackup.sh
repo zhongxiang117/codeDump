@@ -83,9 +83,11 @@ func_copyfiles() {
                     done
                     newfilename="NEW-${cnt}-${filendx}"
                 fi
+                echo "Note: copying <$fpath> to <$newfilename>"
                 cp ${fpath} ${newfilename}
             fi
         else
+            echo "Note: copying <$fpath> to <$fpath>"
             cp ${fpath} .
         fi
     else

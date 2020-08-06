@@ -21,11 +21,14 @@
     //          Substring matching is performed on prefixes, so in this case, 
     //          "fc" could match "for-const".
     //          if is left empty or omitted, the snippet gets applied to all languages
+    //{scope}: languages
     //{body}: is one or more lines of content, which will be joined as multiple lines upon insertion. 
     //        Newlines and embedded tabs will be formatted according to the context 
     //        in which the snippet is inserted.
     //{description}: is an optional description of the snippet displayed by IntelliSense.
 
+    // link for code snippet variables
+    // https://code.visualstudio.com/docs/editor/userdefinedsnippets
 
     "html-snippets": {
         "scope": "html",
@@ -41,9 +44,95 @@
 
 
     "BOM": {
+        "scope": "shellscript, python",
         "prefix": ["BOM",],
         "body": ["# -*- coding: utf-8 -*-","",],
         "description": "Byte Order Mark in Python (useless)",
     },
+
+
+    "fortran77-demo": {
+        "scope": "fortran_fixed-form,",
+        "prefix": ["fortran77",],
+        "body": ["      program HelloWorld","      implicit none","c",
+                "c implicit rule: first char of the name is I,J,K,L,M,N",
+                "c then the data type is integer, otherwise it is real",
+                "c","c all type-declarations have in at the very beginning",
+                "c besides, the return function type also should be defined",
+                "      integer i, n, sum, calc_sum","      real r",
+                "c format","      r = 1.0","      write(*,*) ''",
+                "      write(*,999) 'Use format =', r","c call subroutine",
+                "      write(*,*) ''","      call hello","c read input",
+                "      write(*,*) ''","      write (*,*) 'Input integer?'",
+                "      read (*,*) n","c call function","      write(*,*) ''",
+                "      sum = calc_sum(n)","      write (*,*) '<Use Func> sum = ', sum",
+                "c do-loop","      write(*,*) ''","      sum = 0","      do i = 1, n",
+                "      sum = sum + i","      enddo",
+                "      write (*,*) '<Use Do-1> sum = ', sum",
+                "c another do-loop","      write(*,*) ''","      sum = 0",
+                "      do 10 i = 1, n, 1","      sum = sum + i","   10 continue",
+                "      write (*,*) '<Use Do-2> sum = ', sum",
+                "c",     "c format","c     A - text string",
+                "c     D - double precision numbers, exponent notation",
+                "c     E - real numbers, exponent notation",
+                "c     F - real numbers, fixed point format",
+                "c     I - integer",     "c     X - horizontal skip (space)",
+                "c     / - vertical skip (newline)",
+                "999   format (A,F6.3)","      end","","",
+                "c calculate i + (i+1) +(i+2) + ... n",
+                "c return value is the function name",
+                "      integer function calc_sum(n)",
+                "      implicit none","      integer i, n","      i = 1",
+                "      calc_sum = 0","c one line logical","      if (n.eq.0) return",
+                "c goto","    1 if (i.lt.n+1) then","      calc_sum = calc_sum + i",
+                "      i = i + 1","      goto 1","      end if","      return",
+                "      end","","","      subroutine hello","      implicit none",
+                "      character*32 text","      text = 'subroutine: Hello World'",
+                "      write (*,*) text","      end",
+            ],
+    },
+
+
+    "java": {
+        "scope": "java,",
+        "prefix": ["java",],
+        "body": ["class FreshJuiceEnum {", "    enum FreshJuiceSize { SMALL, MEDIUM, LARGE }",
+                "    FreshJuiceSize size;", "}", "",
+                "public class $TM_FILENAME_BASE {", "    int varAge;",
+                "", "    public $TM_FILENAME_BASE (String name) {",
+                "        /* This constructor has one parameter, name */",
+                "        System.out.println(\"Name chosen is : \" + name );", "    }", "",
+                "    public void setAge(int age) {", "        varAge = age;", "    }", "",
+                "    public int getAge() {",
+                "        System.out.println(\"age is : \" + varAge );",
+                "        return varAge;", "    }", "",
+                "    public static void main(String []args) {",
+                "        FreshJuiceEnum juice = new FreshJuiceEnum();",
+                "        juice.size = FreshJuiceEnum.FreshJuiceSize.MEDIUM;",
+                "        System.out.println(\"Size: \" + juice.size);", "",
+                "        /* Object creation */",
+                "        $TM_FILENAME_BASE myObj = new $TM_FILENAME_BASE(\"Tom\");", "",
+                "        /* Call class method */", "        myObj.setAge(2);", "",
+                "        if (myObj.varAge == 10) {",
+                "            System.out.println(\"if-statement : good\");",
+                "            /* if it has else, no need new line */", "        } else {",
+                "            System.out.println(\"if-statement : bad\");", "        }", "",
+                "        /* Call another class method */", "        myObj.getAge();", "",
+                "        /* You can access instance variable as follows as well */",
+                "        System.out.println(\"Variable Value : \" + myObj.varAge );", "    }",
+                "}", "/*",
+                "Note:                       samePackage           diffPackage   diffPackage",
+                "#           thisClass  (childClass & otherClass)  (childClass)  (otherClass)",
+                "public      visible          visible                visible       visible",
+                "protected   visible          visible                visible      invisible",
+                "default     visible          visible               invisible     invisible",
+                "private     visible         invisible              invisible     invisible",
+                "*/", "", "", "",
+        ],
+    },
+
+
+
+
 
 }

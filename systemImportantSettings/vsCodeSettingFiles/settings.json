@@ -53,24 +53,22 @@
     "[fortran_fixed-form]": {
         "editor.tabSize": 3,
         "editor.rulers": [5,6,72,80],
+        "editor.renderIndentGuides": false,
     },
 
-    //code file map
-    "code-runner.executorMap":{
-        "fortran_fixed-form": "cd $dir && gfortran $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt",
-        "java": "cd $dir && javac $fileName && CLASSPATH=$CLASSPATH:$workspaceRoot; java $fileNameWithoutExt",
-        "c": "cd $dir && gcc $fileName -o $fileNameWithoutExt && $dir$fileNameWithoutExt",
-        "python": "python3.5",
-    }, 
+    //code-runner exculsively for Windows
+    "code-runner.executorMap": {
+        "fortran_fixed-form": "cwd='$dir' && cwd=${cwd//\\\"/} && cwd=${cwd//\\\\/\/} && d=${cwd%:*} && p=${cwd#*:} && cd \"/mnt/${d}${p}\" && f77 $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt",
+        "java": "cwd='$dir' && cwd=${cwd//\\\"/} && cwd=${cwd//\\\\/\/} && d=${cwd%:*} && p=${cwd#*:} && cd \"/mnt/${d}${p}\" && javac.exe $fileName && CLASSPATH=$CLASSPATH:$workspaceRoot; java.exe $fileNameWithoutExt",
+        "c": "cwd='$dir' && cwd=${cwd//\\\"/} && cwd=${cwd//\\\\/\/} && d=${cwd%:*} && p=${cwd#*:} && cd \"/mnt/${d}${p}\" && gcc $fileName -o $fileNameWithoutExt && $dir$fileNameWithoutExt",
+        "python": "python.exe",
+    },
 
 
     // Language python -- extension
     "python.pythonPath": "C:/python/python.exe",
     "python.languageServer": "Microsoft",
     "code-runner.runInTerminal": true,
-    "code-runner.executorMap": {
-        "python": "python",
-    },
 
 
     //matlab
@@ -98,16 +96,31 @@
     "indentRainbow.excludedLanguages": [
         "plaintext",
         "html",
+        "fortran_fixed-form",
     ],
 
 
     "java.home": "C:\\Program Files\\AdoptOpenJDK\\jdk-11.0.8.10-hotspot",
-    "java.semanticHighlighting.enabled": true,
-    "java.configuration.checkProjectSettingsExclusions": false,
 
+    
     //"liveServer.settings.CustomBrowser": "chrome",
     "liveServer.settings.useBrowserPreview": true,
     "liveServer.settings.donotShowInfoMsg": true,
 
+    "git.path": "C:\\Users\\11704\\AppData\\Local\\Packages\\CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc\\LocalState\\rootfs\\usr\\bin\\git",
+    "java.semanticHighlighting.enabled": true,
+
+    "bracketPairColorizer.colorMode": "Consecutive",
+    "bracketPairColorizer.consecutivePairColors":[
+        "()",
+        "[]",
+        "{}",
+        [
+            "LightSkyBlue",
+            "Gold",
+            "Orchid",
+        ],
+        "Red"
+    ],
 
 }
