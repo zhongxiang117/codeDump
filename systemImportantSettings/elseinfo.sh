@@ -111,10 +111,26 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 # ALT + F2  ->  r
 # gnome-shell --replace & disown
 
+
 # desktop file location
 # /usr/share/applications
 # ~/.local/share/applications
 
+
+# Docker -- remove "Video/Music/etcs Folder"
+#
+# comment unwanted folders in
+#
+#for current use
+# ~/.config/user-dirs.dirs
+#
+#for everyone
+# /etc/xdg/user-dirs.defaults
+#
+# persist in reboot in /etc/xdg/user-dirs.conf
+#enables=false
+#
+# finally, execute: xdg-user-dirs-gtk-update
 
 
 
