@@ -107,4 +107,14 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 # cmd: ssh-add
 
 
+# restart ubuntu GUI
+# ALT + F2  ->  r
+# gnome-shell --replace & disown
+
+# desktop file location
+# /usr/share/applications
+# ~/.local/share/applications
+
+
+
 
