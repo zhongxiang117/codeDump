@@ -71,16 +71,25 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #
 # For all of them, the extend shell (via <K_Ctrl>) is with < shellex > instead
 #
+# File:
+#   HKEY_CLASSES_ROOT\*\OpenWithList
+#   HKEY_CLASSES_ROOT\*\shell
+#   HKEY_CLASSES_ROOT\*\shellex\ContextMenuHandlers
+#   HKEY_CLASSES_ROOT\AllFileSystemObjects\shellex\ContextMenuHandlers
 #
-# HKEY_CLASSES_ROOT\*\OpenWithList
-# HKEY_CLASSES_ROOT\*\shellex\ContextMenuHandlers
-# HKEY_CLASSES_ROOT\Directory\Background
-# HKEY_CLASSES_ROOT\Directory\shell
-# HKEY_CLASSES_ROOT\Directory\shellex\ContextMenuHandlers
-# HKEY_CLASSES_ROOT\Drive\shell
-# HKEY_CLASSES_ROOT\Drive\shellex\ContextMenuHandlers
-# HKEY_CLASSES_ROOT\Folder\shell
-# HKEY_CLASSES_ROOT\Folder\shellex\ContextMenuHandlers 
+# Folder:
+#   HKEY_CLASSES_ROOT\Directory\shell
+#   HKEY_CLASSES_ROOT\Directory\shellex\ContextMenuHandlers
+#   HKEY_CLASSES_ROOT\Folder\shell
+#   HKEY_CLASSES_ROOT\Folder\shellex\ContextMenuHandlers
+#
+# Desktop:
+#   HKEY_CLASSES_ROOT\Directory\Background
+#   HKEY_CLASSES_ROOT\Directory\Background\shellex\ContextMenuHandlers
+#
+# Drive:
+#   HKEY_CLASSES_ROOT\Drive\shell
+#   HKEY_CLASSES_ROOT\Drive\shellex\ContextMenuHandlers
 #
 # Tree:
 #
@@ -89,6 +98,18 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #       Command/    --> REG_SZ{KEY_PATH_TO_EXE,"%1"}
 #       Icon        --> REG_SZ{.exe,.ico}
 #       Position    --> REG_SZ{top,bottom}
+#
+# Desktop: wsl --> ubuntu:
+#       [HKEY_CLASSES_ROOT\Directory\Background\shell\Open by Ubuntu]
+#       "Icon"="\"C:\\Program Files\\WindowsApps\\CanonicalGroupLimited.Ubuntu18.04onWindows_1804.2020.423.0_x64__79rhkp1fndgsc\\ubuntu1804.exe\""
+#       [HKEY_CLASSES_ROOT\Directory\Background\shell\Open by Ubuntu\command]
+#       @="\"C:\\Program Files\\WindowsApps\\CanonicalGroupLimited.Ubuntu18.04onWindows_1804.2020.423.0_x64__79rhkp1fndgsc\\ubuntu1804.exe\" run"
+#
+# Folder: VSCode:
+#       [HKEY_CLASSES_ROOT\Folder\shell\Open by VSCode]
+#       "Icon"="\"C:\\Users\\USER\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe\""
+#       [HKEY_CLASSES_ROOT\Folder\shell\Open by VSCode\command]
+#       @="\"C:\\Users\\USER\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe\" -n \"%1\""
 
 
 # Remove SkyDrive Pro in Context menu
