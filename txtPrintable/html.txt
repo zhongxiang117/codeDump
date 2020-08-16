@@ -1,0 +1,460 @@
+LINK: https://www.w3schools.com/tags/default.asp
+
+tag                         Description
+<!--...-->                  Defines a comment
+<!DOCTYPE>                  Defines the document type
+<a>                         Defines a hyperlink
+<abbr>                      Defines an abbreviation or an acronym
+<acronym>                   Defines an acronym, Not supported in HTML5. Use <abbr> instead.
+<address>                   Defines contact information for the author/owner of a document
+<applet>                    Defines an embedded applet. Not supported in HTML5. Use <embed> or <object> instead.
+<area>                      Defines an area inside an image map
+<article>                   Defines an article
+<aside>                     Defines content aside from the page content
+<audio>                     Defines embedded sound content
+<b>                         Defines bold text
+<base>                      Specifies the base URL/target for all relative URLs in a document
+<basefont>                  Specifies a default color, size, and font for all text in a document. Not supported in HTML5. Use CSS instead.
+<bdi>                       Isolates a part of text that might be formatted in a different direction from other text outside it
+<bdo>                       Overrides the current text direction
+<big>                       Defines big text. Not supported in HTML5. Use CSS instead.
+<blockquote>                Defines a section that is quoted from another source
+<body>                      Defines the document's body
+<br>                        Defines a single line break
+<button>                    Defines a clickable button
+<canvas>                    Used to draw graphics, on the fly, via scripting (usually JavaScript)
+<caption>                   Defines a table caption
+<center>                    Defines centered text. Not supported in HTML5. Use CSS instead.
+<cite>                      Defines the title of a work
+<code>                      Defines a piece of computer code
+<col>                       Specifies column properties for each column within a <colgroup> element
+<colgroup>                  Specifies a group of one or more columns in a table for formatting
+<data>                      Adds a machine-readable translation of a given content
+<datalist>                  Specifies a list of pre-defined options for input controls
+<dd>                        Defines a description/value of a term in a description list
+<del>                       Defines text that has been deleted from a document
+<details>                   Defines additional details that the user can view or hide
+<dfn>                       Specifies a term that is going to be defined within the content
+<dialog>                    Defines a dialog box or window
+<dir>                       Defines a directory list. Not supported in HTML5. Use <ul> instead.
+<div>                       Defines a section in a document
+<dl>                        Defines a description list
+<dt>                        Defines a term/name in a description list
+<em>                        Defines emphasized text
+<embed>                     Defines a container for an external application
+<fieldset>                  Groups related elements in a form
+<figcaption>                Defines a caption for a <figure> element
+<figure>                    Specifies self-contained content
+<font>                      Defines font, color, and size for text. Not supported in HTML5. Use CSS instead.
+<footer>                    Defines a footer for a document or section
+<form>                      Defines an HTML form for user input
+<frame>                     Defines a window (a frame) in a frameset. Not supported in HTML5.
+<frameset>                  Defines a set of frames. Not supported in HTML5.
+<h1> to <h6>                Defines HTML headings
+<head>                      Contains metadata/information for the document
+<header>                    Defines a header for a document or section
+<hr>                        Defines a thematic change in the content
+<html>                      Defines the root of an HTML document
+<i>                         Defines a part of text in an alternate voice or mood
+<iframe>                    Defines an inline frame
+<img>                       Defines an image
+<input>                     Defines an input control
+<ins>                       Defines a text that has been inserted into a document
+<kbd>                       Defines keyboard input
+<label>                     Defines a label for an <input> element
+<legend>                    Defines a caption for a <fieldset> element
+<li>                        Defines a list item
+<link>                      Defines the relationship between a document and an external resource (most used to link to style sheets)
+<main>                      Specifies the main content of a document
+<map>                       Defines an image map
+<mark>                      Defines marked/highlighted text
+<meta>                      Defines metadata about an HTML document
+<meter>                     Defines a scalar measurement within a known range (a gauge)
+<nav>                       Defines navigation links
+<noframes>                  Defines an alternate content for users that do not support frames. Not supported in HTML5.
+<noscript>                  Defines an alternate content for users that do not support client-side scripts
+<object>                    Defines a container for an external application
+<ol>                        Defines an ordered list
+<optgroup>                  Defines a group of related options in a drop-down list
+<option>                    Defines an option in a drop-down list
+<output>                    Defines the result of a calculation
+<p>                         Defines a paragraph
+<param>                     Defines a parameter for an object
+<picture>                   Defines a container for multiple image resources
+<pre>                       Defines preformatted text
+<progress>                  Represents the progress of a task
+<q>                         Defines a short quotation
+<rp>                        Defines what to show in browsers that do not support ruby annotations
+<rt>                        Defines an explanation/pronunciation of characters (for East Asian typography)
+<ruby>                      Defines a ruby annotation (for East Asian typography)
+<s>                         Defines text that is no longer correct
+<samp>                      Defines sample output from a computer program
+<script>                    Defines a client-side script
+<section>                   Defines a section in a document
+<select>                    Defines a drop-down list
+<small>                     Defines smaller text
+<source>                    Defines multiple media resources for media elements (<video> and <audio>)
+<span>                      Defines a section in a document
+<strike>                    Defines strikethrough text. Not supported in HTML5. Use <del> or <s> instead.
+<strong>                    Defines important text
+<style>                     Defines style information for a document
+<sub>                       Defines subscripted text
+<summary>                   Defines a visible heading for a <details> element
+<sup>                       Defines superscripted text
+<svg>                       Defines a container for SVG graphics
+<table>                     Defines a table
+<tbody>                     Groups the body content in a table
+<td>                        Defines a cell in a table
+<template>                  Defines a container for content that should be hidden when the page loads
+<textarea>                  Defines a multiline input control (text area)
+<tfoot>                     Groups the footer content in a table
+<th>                        Defines a header cell in a table
+<thead>                     Groups the header content in a table
+<time>                      Defines a specific time (or datetime)
+<title>                     Defines a title for the document
+<tr>                        Defines a row in a table
+<track>                     Defines text tracks for media elements (<video> and <audio>)
+<tt>                        Defines teletype text. Not supported in HTML5. Use CSS instead.
+<u>                         Defines some text that is unarticulated and styled differently from normal text
+<ul>                        Defines an unordered list
+<var>                       Defines a variable
+<video>                     Defines embedded video content
+<wbr>                       Defines a possible line-break
+
+
+
+
+
+
+LINK: https://www.w3schools.com/tags/ref_eventattributes.asp
+
+Global Event Attributes
+
+Window Event Attributes
+Events triggered for the window object (applies to the <body> tag):
+
+Attribute           Value           Description
+onafterprint        script        Script to be run after the document is printed
+onbeforeprint       script        Script to be run before the document is printed
+onbeforeunload      script        Script to be run when the document is about to be unloaded
+onerror             script        Script to be run when an error occurs
+onhashchange        script        Script to be run when there has been changes to the anchor part of the a URL
+onload              script        Fires after the page is finished loading
+onmessage           script        Script to be run when the message is triggered
+onoffline           script        Script to be run when the browser starts to work offline
+ononline            script        Script to be run when the browser starts to work online
+onpagehide          script        Script to be run when a user navigates away from a page
+onpageshow          script        Script to be run when a user navigates to a page
+onpopstate          script        Script to be run when the window's history changes
+onresize            script        Fires when the browser window is resized
+onstorage           script        Script to be run when a Web Storage area is updated
+onunload            script        Fires once a page has unloaded (or the browser window has been closed)
+
+
+
+Form Events
+Events triggered by actions inside a HTML form (applies to almost all HTML elements, but is most used in form elements):
+
+Attribute           Value           Description
+onblur              script        Fires the moment that the element loses focus
+onchange            script        Fires the moment when the value of the element is changed
+oncontextmenu       script        Script to be run when a context menu is triggered
+onfocus             script        Fires the moment when the element gets focus
+oninput             script        Script to be run when an element gets user input
+oninvalid           script        Script to be run when an element is invalid
+onreset             script        Fires when the Reset button in a form is clicked
+onsearch            script        Fires when the user writes something in a search field (for <input="search">)
+onselect            script        Fires after some text has been selected in an element
+onsubmit            script        Fires when a form is submitted
+
+
+
+Keyboard Events
+
+Attribute           Value           Description
+onkeydown           script        Fires when a user is pressing a key
+onkeypress          script        Fires when a user presses a key
+onkeyup             script        Fires when a user releases a key
+
+
+
+Mouse Events
+
+Attribute           Value           Description
+onclick             script        Fires on a mouse click on the element
+ondblclick          script        Fires on a mouse double-click on the element
+onmousedown         script        Fires when a mouse button is pressed down on an element
+onmousemove         script        Fires when the mouse pointer is moving while it is over an element
+onmouseout          script        Fires when the mouse pointer moves out of an element
+onmouseover         script        Fires when the mouse pointer moves over an element
+onmouseup           script        Fires when a mouse button is released over an element
+onmousewheel        script        Deprecated. Use the onwheel attribute instead
+onwheel             script        Fires when the mouse wheel rolls up or down over an element
+
+
+
+Drag Events
+
+Attribute           Value           Description
+ondrag              script        Script to be run when an element is dragged
+ondragend           script        Script to be run at the end of a drag operation
+ondragenter         script        Script to be run when an element has been dragged to a valid drop target
+ondragleave         script        Script to be run when an element leaves a valid drop target
+ondragover          script        Script to be run when an element is being dragged over a valid drop target
+ondragstart         script        Script to be run at the start of a drag operation
+ondrop              script        Script to be run when dragged element is being dropped
+onscroll            script        Script to be run when an element's scrollbar is being scrolled
+
+
+
+Clipboard Events
+
+Attribute           Value           Description
+oncopy              script        Fires when the user copies the content of an element
+oncut               script        Fires when the user cuts the content of an element
+onpaste             script        Fires when the user pastes some content in an element
+
+
+
+Media Events
+Events triggered by medias like videos, images and audio (applies to all HTML elements,
+but is most common in media elements, like <audio>, <embed>, <img>, <object>, and <video>).
+
+Attribute           Value           Description
+onabort             script        Script to be run on abort
+oncanplay           script        Script to be run when a file is ready to start playing (when it has buffered enough to begin)
+oncanplaythrough    script        Script to be run when a file can be played all the way to the end without pausing for buffering
+oncuechange         script        Script to be run when the cue changes in a <track> element
+ondurationchange    script        Script to be run when the length of the media changes
+onemptied           script        Script to be run when something bad happens and the file is suddenly unavailable (like unexpectedly disconnects)
+onended             script        Script to be run when the media has reach the end (a useful event for messages like "thanks for listening")
+onerror             script        Script to be run when an error occurs when the file is being loaded
+onloadeddata        script        Script to be run when media data is loaded
+onloadedmetadata    script        Script to be run when meta data (like dimensions and duration) are loaded
+onloadstart         script        Script to be run just as the file begins to load before anything is actually loaded
+onpause             script        Script to be run when the media is paused either by the user or programmatically
+onplay              script        Script to be run when the media is ready to start playing
+onplaying           script        Script to be run when the media actually has started playing
+onprogress          script        Script to be run when the browser is in the process of getting the media data
+onratechange        script        Script to be run each time the playback rate changes (like when a user switches to a slow motion or fast forward mode)
+onseeked            script        Script to be run when the seeking attribute is set to false indicating that seeking has ended
+onseeking           script        Script to be run when the seeking attribute is set to true indicating that seeking is active
+onstalled           script        Script to be run when the browser is unable to fetch the media data for whatever reason
+onsuspend           script        Script to be run when fetching the media data is stopped before it is completely loaded for whatever reason
+ontimeupdate        script        Script to be run when the playing position has changed (like when the user fast forwards to a different point in the media)
+onvolumechange      script        Script to be run each time the volume is changed which (includes setting the volume to "mute")
+onwaiting           script        Script to be run when the media has paused but is expected to resume (like when the media pauses to buffer more data)
+
+
+
+Misc Events
+
+Attribute           Value           Description
+ontoggle            script        Fires when the user opens or closes the <details> element
+
+
+
+
+
+
+LINK: https://www.w3schools.com/tags/ref_av_dom.asp
+
+
+HTML Audio/Video Methods
+
+addTextTrack()              Adds a new text track to the audio/video
+canPlayType()               Checks if the browser can play the specified audio/video type
+load()                      Re-loads the audio/video element
+play()                      Starts playing the audio/video
+pause()                     Pauses the currently playing audio/video
+
+
+
+HTML Audio/Video Properties
+
+audioTracks                 Returns an AudioTrackList object representing available audio tracks
+autoplay                    Sets or returns whether the audio/video should start playing as soon as it is loaded
+buffered                    Returns a TimeRanges object representing the buffered parts of the audio/video
+controller                  Returns the MediaController object representing the current media controller of the audio/video
+controls                    Sets or returns whether the audio/video should display controls (like play/pause etc.)
+crossOrigin                 Sets or returns the CORS settings of the audio/video
+currentSrc                  Returns the URL of the current audio/video
+currentTime                 Sets or returns the current playback position in the audio/video (in seconds)
+defaultMuted                Sets or returns whether the audio/video should be muted by default
+defaultPlaybackRate         Sets or returns the default speed of the audio/video playback
+duration                    Returns the length of the current audio/video (in seconds)
+ended                       Returns whether the playback of the audio/video has ended or not
+error                       Returns a MediaError object representing the error state of the audio/video
+loop                        Sets or returns whether the audio/video should start over again when finished
+mediaGroup                  Sets or returns the group the audio/video belongs to (used to link multiple audio/video elements)
+muted                       Sets or returns whether the audio/video is muted or not
+networkState                Returns the current network state of the audio/video
+paused                      Returns whether the audio/video is paused or not
+playbackRate                Sets or returns the speed of the audio/video playback
+played                      Returns a TimeRanges object representing the played parts of the audio/video
+preload                     Sets or returns whether the audio/video should be loaded when the page loads
+readyState                  Returns the current ready state of the audio/video
+seekable                    Returns a TimeRanges object representing the seekable parts of the audio/video
+seeking                     Returns whether the user is currently seeking in the audio/video
+src                         Sets or returns the current source of the audio/video element
+startDate                   Returns a Date object representing the current time offset
+textTracks                  Returns a TextTrackList object representing the available text tracks
+videoTracks                 Returns a VideoTrackList object representing the available video tracks
+volume                      Sets or returns the volume of the audio/video
+
+
+
+HTML Audio/Video Events <add on>
+
+abort                       Fires when the loading of an audio/video is aborted
+canplay                     Fires when the browser can start playing the audio/video
+canplaythrough              Fires when the browser can play through the audio/video without stopping for buffering
+durationchange              Fires when the duration of the audio/video is changed
+emptied                     Fires when the current playlist is empty
+ended                       Fires when the current playlist is ended
+error                       Fires when an error occurred during the loading of an audio/video
+loadeddata                  Fires when the browser has loaded the current frame of the audio/video
+loadedmetadata              Fires when the browser has loaded meta data for the audio/video
+loadstart                   Fires when the browser starts looking for the audio/video
+pause                       Fires when the audio/video has been paused
+play                        Fires when the audio/video has been started or is no longer paused
+playing                     Fires when the audio/video is playing after having been paused or stopped for buffering
+progress                    Fires when the browser is downloading the audio/video
+ratechange                  Fires when the playing speed of the audio/video is changed
+seeked                      Fires when the user is finished moving/skipping to a new position in the audio/video
+seeking                     Fires when the user starts moving/skipping to a new position in the audio/video
+stalled                     Fires when the browser is trying to get media data, but data is not available
+suspend                     Fires when the browser is intentionally not getting media data
+timeupdate                  Fires when the current playback position has changed
+volumechange                Fires when the volume has been changed
+waiting                     Fires when the video stops because it needs to buffer the next frame
+
+
+
+
+
+
+LINK: https://www.w3schools.com/tags/ref_canvas.asp
+
+
+HTML Canvas Reference
+The HTML <canvas> tag is used to draw graphics, on the fly, via scripting (usually JavaScript).
+
+
+Colors, Styles, and Shadows
+
+Property                    Description
+fillStyle                   Sets or returns the color, gradient, or pattern used to fill the drawing
+strokeStyle                 Sets or returns the color, gradient, or pattern used for strokes
+shadowColor                 Sets or returns the color to use for shadows
+shadowBlur                  Sets or returns the blur level for shadows
+shadowOffsetX               Sets or returns the horizontal distance of the shadow from the shape
+shadowOffsetY               Sets or returns the vertical distance of the shadow from the shape
+
+Method                      Description
+createLinearGradient()      Creates a linear gradient (to use on canvas content)
+createPattern()             Repeats a specified element in the specified direction
+createRadialGradient()      Creates a radial/circular gradient (to use on canvas content)
+addColorStop()              Specifies the colors and stop positions in a gradient object
+
+
+Line Styles
+
+Property                    Description
+lineCap                     Sets or returns the style of the end caps for a line
+lineJoin                    Sets or returns the type of corner created, when two lines meet
+lineWidth                   Sets or returns the current line width
+miterLimit                  Sets or returns the maximum miter length
+
+
+Rectangles
+
+Method                      Description
+rect()                      Creates a rectangle
+fillRect()                  Draws a "filled" rectangle
+strokeRect()                Draws a rectangle (no fill)
+clearRect()                 Clears the specified pixels within a given rectangle
+
+
+Paths
+
+Method                      Description
+fill()                      Fills the current drawing (path)
+stroke()                    Actually draws the path you have defined
+beginPath()                 Begins a path, or resets the current path
+moveTo()                    Moves the path to the specified point in the canvas, without creating a line
+closePath()                 Creates a path from the current point back to the starting point
+lineTo()                    Adds a new point and creates a line to that point from the last specified point in the canvas
+clip()                      Clips a region of any shape and size from the original canvas
+quadraticCurveTo()          Creates a quadratic Bézier curve
+bezierCurveTo()             Creates a cubic Bézier curve
+arc()                       Creates an arc/curve (used to create circles, or parts of circles)
+arcTo()                     Creates an arc/curve between two tangents
+isPointInPath()             Returns true if the specified point is in the current path, otherwise false
+
+
+Transformations
+
+Method                      Description
+scale()                     Scales the current drawing bigger or smaller
+rotate()                    Rotates the current drawing
+translate()                 Remaps the (0,0) position on the canvas
+transform()                 Replaces the current transformation matrix for the drawing
+setTransform()              Resets the current transform to the identity matrix. Then runs transform()
+
+
+Text
+
+Property                    Description
+font                        Sets or returns the current font properties for text content
+textAlign                   Sets or returns the current alignment for text content
+textBaseline                Sets or returns the current text baseline used when drawing text
+
+Method                      Description
+fillText()                  Draws "filled" text on the canvas
+strokeText()                Draws text on the canvas (no fill)
+measureText()               Returns an object that contains the width of the specified text
+
+
+Image Drawing
+
+Method                      Description
+drawImage()                 Draws an image, canvas, or video onto the canvas
+
+
+Pixel Manipulation
+
+Property                    Description
+width                       Returns the width of an ImageData object
+height                      Returns the height of an ImageData object
+data                        Returns an object that contains image data of a specified ImageData object
+
+Method                      Description
+createImageData()           Creates a new, blank ImageData object
+getImageData()              Returns an ImageData object that copies the pixel data for the specified rectangle on a canvas
+putImageData()              Puts the image data (from a specified ImageData object) back onto the canvas
+
+
+Compositing
+
+Property                    Description
+globalAlpha                 Sets or returns the current alpha or transparency value of the drawing
+globalCompositeOperation    Sets or returns how a new image is drawn onto an existing image
+
+
+Other
+
+Method                      Description
+save()                      Saves the state of the current context
+restore()                   Returns previously saved path state and attributes
+createEvent()
+getContext()
+toDataURL()
+
+
+
+
+
+
+
+
