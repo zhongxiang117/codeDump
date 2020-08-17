@@ -44,6 +44,10 @@
         "strings": true,
     },
 
+    "workbench.colorCustomizations": {
+        "editor.lineHighlightBackground": "#333333"
+    },
+
     // File Association
     //modern fortran -- extension 
     "files.associations": {
@@ -53,8 +57,14 @@
     "[fortran_fixed-form]": {
         "editor.tabSize": 3,
         "editor.rulers": [5,6,72,80],
-        "editor.renderIndentGuides": false,
+        //"editor.renderIndentGuides": false,
     },
+    "[html]": {
+        "editor.suggest.insertMode": "replace",
+        "editor.tabSize": 2,
+        
+    },
+
 
     //code-runner exculsively for Windows
     "code-runner.executorMap": {
@@ -97,6 +107,7 @@
         "plaintext",
         "html",
         "fortran_fixed-form",
+        "log",
     ],
 
 

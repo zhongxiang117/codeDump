@@ -27,5 +27,9 @@
         "key": "ctrl+alt+n",
         "command": "-code-runner.run"
     },
+    {
+        "key": "ctrl+e",
+        "command": "cursorLineEnd"
+    },
 
 ]
