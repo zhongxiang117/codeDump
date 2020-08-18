@@ -154,4 +154,21 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 # finally, execute: xdg-user-dirs-gtk-update
 
 
+# if a /usr/bin/ld problem occurs, which means a package is not found
+#       error like: /usr/bin/ld [option]
+#
+# First, show verbose, by using /usr/bin/ld [option] --verbose
+#       locate which package is
+# Second, use the error path, recursively find whether the package is missing or not
+#       sudo dpkg -l | grep [lib]
+# [Third], if the lib exists, symbolize it
+# [Third], if the lib not exists, install it
+
+
+
+
+
+
+
+
 
