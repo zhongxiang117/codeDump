@@ -45,8 +45,15 @@
     },
 
     "workbench.colorCustomizations": {
-        "editor.lineHighlightBackground": "#333333"
+        "editor.lineHighlightBackground": "#333333",
+        "activityBar.activeBackground": "#1b9c9c",
+        "breadcrumb.background": "#1a3a3d",
+        "badge.background": "#6f9408",
+        "tab.activeBackground": "#30795a",
     },
+    "workbench.tree.renderIndentGuides": "always",
+    "workbench.tree.indent": 20,
+
 
     // File Association
     //modern fortran -- extension 
@@ -118,7 +125,6 @@
     "liveServer.settings.useBrowserPreview": true,
     "liveServer.settings.donotShowInfoMsg": true,
 
-    "git.path": "C:\\Users\\11704\\AppData\\Local\\Packages\\CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc\\LocalState\\rootfs\\usr\\bin\\git",
     "java.semanticHighlighting.enabled": true,
 
     "bracketPairColorizer.colorMode": "Consecutive",
@@ -133,5 +139,7 @@
         ],
         "Red"
     ],
+
+
 
 }
