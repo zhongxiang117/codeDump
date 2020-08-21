@@ -165,6 +165,9 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 # [Third], if the lib not exists, install it
 
 
+# use python start a server
+# python3 -m http.server 8000 --bind 127.0.0.1
+
 
 
 
