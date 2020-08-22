@@ -182,6 +182,24 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #   git remote show origin      :  show all information
 
 
+# git printout color : ~/.gitconfig 
+#   [color "branch"]
+#       #current = yellow reverse
+#       current = cyan
+#       local = yellow
+#       #remote =
+#   [color "diff"]
+#       meta = yellow bold
+#       frag = magenta bold
+#       old = red bold
+#       #new = green bold
+#       new = cyan bold
+#   [color "status"]
+#       added = yellow
+#       #changed = green
+#       changed = red
+#       untracked = cyan
+
 
 
 
