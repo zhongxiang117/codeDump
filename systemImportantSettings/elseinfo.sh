@@ -169,6 +169,17 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 # python3 -m http.server 8000 --bind 127.0.0.1
 
 
+# git
+#
+# Edit push method
+#   [remote] -- url = git+ssh://git@github.com/REPOSITORY.github.io.git
+#
+# push to remote -- have to specify which branch to push at the first time
+#   git push -u origin [remote_branch_name]
+#
+# show current branch's remote url
+#   git branch -vv              :   -vv == --verbose     :  -a == all
+#   git remote show origin      :  show all information
 
 
 
