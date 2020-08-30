@@ -201,6 +201,15 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #       untracked = cyan
 
 
+# Stop ubuntu updates
+#
+# /etc/apt/apt.conf.d/20auto-upgrades
+#       APT::Periodic::Update-Package-Lists "0";    # No check updates
+#       APT::Periodic::Unattended-Upgrade "0";      # No background updates
+#
+# system-wide setting
+# /etc/apt/apt.conf.d/10periodic
+# set all to "0"
 
 
 
