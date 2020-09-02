@@ -1,0 +1,68 @@
+string: both double and single quotes
+
+Placing scripts at the bottom of the <body> element improves the display speed, because script interpretation slows down the display.
+
+
+Writing into an HTML element, using innerHTML.
+Writing into the HTML output using document.write().
+Writing into an alert box, using window.alert().
+Writing into the browser console, using console.log().
+
+Using document.write() after an HTML document is loaded, will delete all existing HTML
+
+
+Keyword             Description
+break               Terminates a switch or a loop
+continue            Jumps out of a loop and starts at the top
+debugger            Stops the execution of JavaScript, and calls (if available) the debugging function
+do ... while        Executes a block of statements, and repeats the block, while a condition is true
+for                 Marks a block of statements to be executed, as long as a condition is true
+function            Declares a function
+if ... else         Marks a block of statements to be executed, depending on a condition
+return              Exits a function
+switch              Marks a block of statements to be executed, depending on different cases
+try ... catch       Implements error handling to a block of statements
+var                 Declares a variable
+
+Code after double slashes // or between /* and */ is treated as a comment.
+All JavaScript identifiers are case sensitive.
+A declaration can span multiple lines.
+A variable declared without a value will have the value undefined.
+Array indexes are zero-based, which means the first item is [0], second is [1], and so on.
+undefined and null are equal in value but different in type.
+
+
+if (condition1) {
+  //  block of code to be executed if condition1 is true
+} else if (condition2) {
+  //  block of code to be executed if the condition1 is false and condition2 is true
+} else {
+  //  block of code to be executed if the condition1 is false and condition2 is false
+}
+
+
+for (statement 1; statement 2; statement 3) {
+  // code block to be executed
+}
+
+
+5 different data types that can contain values:
+    string
+    number
+    boolean
+    object
+    function
+There are 6 types of objects:
+    Object
+    Date
+    Array
+    String
+    Number
+    Boolean
+And 2 data types that cannot contain values:
+    null
+    undefined
+
+
+
+
