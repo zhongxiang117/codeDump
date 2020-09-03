@@ -211,5 +211,8 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 # /etc/apt/apt.conf.d/10periodic
 # set all to "0"
 
+# Inside terminal, open file explorer
+#   Ubuntu : nautilus OR xdg-open
+#   Windows: explorer.exe  ==> try check `wslpath`
 
 
