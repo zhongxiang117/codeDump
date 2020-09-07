@@ -1,0 +1,109 @@
+case sensitive
+
+Here Document:
+    print <<EOF     # no space
+        method-1
+    EOF
+
+    print <<"EOF"
+        method-2 same with method-1
+    EOF
+
+    print <<`EOF`
+        method-3, executable
+    EOF
+
+BEGIN {}          # initialized first, from top to bottom
+END {}            # process last, from bottom to top
+
+=begin
+comments in between
+=end
+
+Data Type:
+    Number: integer, float ==> (Fixnum, Bignum)
+    String
+    Array
+    Hash: {key=>value,}
+    Time:
+    Range:
+            ..  include end
+            ... exclude end
+    Class:
+        class NAME   # Capitalize & CamelCase
+            def initialize()
+                initializing
+            end
+            def FUNCTION
+                block
+            end
+        end
+
+local variable    : small character or _
+instance variable : @
+class variable    : @@
+global variable   : $
+
+defined? variable  # if defined, return true
+
+
+if conditional [then]
+      code...
+[elsif conditional [then]
+      code...]...
+[else
+      code...]
+end
+
+
+unless conditional [then]
+   code
+[else
+   code ]
+end
+
+
+#note: use === make comparison
+case expression
+[when expression [, expression ...] [then]
+   code ]...
+[else
+   code ]
+end
+
+$LOAD_PATH    require_relative    require   include
+
+
+collection.each do |variable|
+   code
+end
+
+
+puts        all of them, new line
+print       all of them, appending
+putc        single character
+gets        read inputs
+
+
+begin 
+    raise error
+rescue 
+    process error
+else
+    no errors
+ensure 
+    always executed
+end
+
+sub  || sub!
+gsub || gsub!
+! means also change original one
+
+
+require
+    $LOAD_PATH.unshift(File.dirname(__FILE__)) unless $LOAD_PATH.include?(File.dirname(__FILE__))
+
+
+require: run other file-codes
+include: add other module to Here
+
