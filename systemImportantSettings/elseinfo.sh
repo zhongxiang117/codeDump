@@ -161,6 +161,7 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #       locate which package is
 # Second, use the error path, recursively find whether the package is missing or not
 #       sudo dpkg -l | grep [lib]
+#       then, `sudo dpkg -L [libname]' to locate its path
 # [Third], if the lib exists, symbolize it
 # [Third], if the lib not exists, install it
 
