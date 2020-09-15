@@ -216,3 +216,10 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #   Windows: explorer.exe  ==> try check `wslpath`
 
 
+# regedit Software
+# ShellMenuViewer   --   author: Nir Sofer
+
+
+# git repository
+# edit .git/config -- url -- [https:] -- git+ssh://git@
+
