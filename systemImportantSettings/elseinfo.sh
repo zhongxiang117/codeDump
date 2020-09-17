@@ -224,3 +224,16 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 # git repository
 # edit .git/config -- url -- [https:] -- git+ssh://git@
 
+
+# windows wsl chmod
+# 
+# permission in windows trumps wsl
+# https://devblogs.microsoft.com/commandline/chmod-chown-wsl-improvements/
+#
+# save the changes in `/etc/wsl.conf'
+# [automount]
+#   options = "metadata"
+
+
+
+
