@@ -132,7 +132,17 @@
     },
 
 
+    "document": {
+        "scope": "markdown,",
+        "prefix": ["document",],
+        "body": ["A very good document [`${1:alt}`](${2:link})","","```note",
+                "in case of any errors, here is a backup file: [`${3:alt}`](${4:link})",
+                "","All rights belong to the author that link shows.","",
+                "Also, in here I express my great gratitude to OP for such a helpful and useful document!",
+                "```",
+        ],
+    },
 
 
-
+    
 }
