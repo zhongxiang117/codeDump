@@ -1,0 +1,68 @@
+Github Search Advance
+
+
+Qualifier
+
+in:name
+in:description
+in:readme
+in:title
+in:body
+in:login
+in:name
+in:email
+in:file
+in:path
+
+no:labels
+no:milestone
+no:assignee
+no:project
+
+repos:n
+repo:owner/folder
+
+user:USERNAME
+org:ORGNAME      ## organization
+
+type:pr   ## pull request
+type:issue
+
+size:n     ## >= <= ..
+followers:n
+forks:n
+stars:n
+created:YYYY-MM-DD
+pushed:YYYY-MM-DD
+
+language:LANGUAGE
+topic:TOPIC
+topic:n
+
+license:LICENSE_KEYWORD
+
+is:public
+is:private
+is:pr
+is:issue
+is:curated
+is:not-curated
+is:featured
+is:not-featured
+
+mirror:true
+mirror:false
+
+archived:true
+archived:false
+
+sort:interactions  OR  sort:interactions-desc    ## descending
+sort:interactions-asc    ## ascending
+
+sort:reactions   OR   sort:reactions-desc
+sort:reactions-asc
+
+sort:update  OR sort:update-desc
+sort:update-asc
+
+
