@@ -1,0 +1,29 @@
+[user]
+    email = zhongxiang117@gmail.com
+    name = Xiang Zhong
+
+
+[core]
+    editor = vim
+    # on windows to avoid file executable errors
+    #fileMode = false
+    autocrlf = input
+    safecrlf = true
+
+
+[color "branch"]
+    #current = yellow reverse
+    current = cyan
+    local = yellow
+    #remote =
+[color "diff"]
+    meta = yellow bold
+    frag = magenta bold
+    old = red bold
+    #new = green bold
+    new = cyan bold
+[color "status"]
+    added = yellow
+    #changed = green
+    changed = red
+    untracked = cyan

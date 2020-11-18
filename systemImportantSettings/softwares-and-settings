@@ -1,0 +1,96 @@
+# For future convenience, here list all the installed useful packages
+# date: March 4, 2020
+# date: November 17, 2020
+
+
+
+ 1. Microsoft vscode (!Action: setting.json, shortcuts, extensions)
+ 2. WPS
+ 3. Foxit PDF
+ 4. Matlab
+ 5. Gaussian & GaussView (!Action: export PATH)
+ 6. Eclipse
+ 7. Flame (Screenshot)
+ 8. CopyQ (ClipboardManager)
+ 9. VMD
+10. Freeplane (Mindtool)
+11. Tweak (Gnome-tool)
+12. dconf-editor (Gnome-tool)
+13. GParted (DiskManager)
+14. pyenv  (!Action: ChangeInIdleScript)
+15. BOSS   (!Action: PATH) 
+16. FileZilla
+17. ssh & git   (Remote login & Serve setup)
+18. gedit  (!Action: change windowSize, style, extension)
+19. Sogou  (Fcitx)
+20. dash-to-dock (!Action: Separate Workspace) 
+21. Firefox & Chrome
+22. GNU Image Manipulation Program (photoshop alike)
+23. Oracle VM VirtualBox
+
+
+
+
+# for Windows
+
+ *. Microsoft Office
+ *. Adobe Acrobat
+ *. ChemDraw
+ *. Zoom
+ *. Baidu Driver
+ *. EndNote
+ *. Matlab
+
+ 1. Shell Menu View     [context menu handler](https://www.nirsoft.net/utils/shell_menu_view.html)
+ 2. LightShot           [screenshot](https://app.prntscr.com/en/index.html)
+ 3. AutoHotKey          [global hotkey](https://www.autohotkey.com/)
+ 4. BlueStacks          [Android enumerator](https://www.bluestacks.com/)
+ 5. JiJiDown            [Bilibili downloader](http://client.jijidown.com/)
+ 6. you-get             [you-get](https://github.com/soimort/you-get)
+ 7. uedit32             [dll]
+ 8. iqiyi kan tu        [Photo Viewer]
+ 9. Box Driver
+10. VLC Media Player    [VLC](https://www.videolan.org/vlc/index.html)
+11. dos2unix
+
+
+
+
+# Ubuntu settings
+
+*. install softwares
+*. configure settings
+
+1. Turn off all system updates
+2. configure .desktop files
+3. configure right-click context menu (scripts in Tips)
+4. configure docker appearance
+5. Tweaking
+6. dconf editing
+7. change shortcuts & fonts
+
+
+
+# Windows
+
+*. install softwares    (set firewall restrictions)
+*. configure settings
+
+1. Turn off all system updates
+2. change Viewer format & policy
+3. configure right-click context menu using Shell Menu View & Tips
+4. add fonts (Ubuntu Mono)
+5. wsl, also do step 1
+
+
+
+
+
+
+
+# extensions exclusively for Chrome or Firefox browser
+1. Awesome Screenshot
+2. Save Page WE
+3. Save page with SingleFile
+
+
