@@ -1,0 +1,70 @@
+Note: bulk process for input files:
+  => data-qm-molnm-10744.txt
+  => data-qm-molnm-21442.txt
+  => data-qm-molnm-32071.txt
+  => data-qm-molnm-42697.txt
+  => data-qm-molnm-53292.txt
+  => data-qm-molnm-5361.txt
+
+Note: index files:
+
+Note: result file:
+  => system-1.txt
+
+Note: bonds connections:
+  => [[0, 1], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7]]
+
+Note: angles connections:
+  => [[0, 2, 1], [0, 2, 3], [0, 2, 4], [0, 2, 5], [0, 2, 6], [0, 2, 7]]
+
+Note: tolerance:
+  => [0.1, 0.1]
+
+
+Note: images for file: < data-qm-molnm-10744.txt >
+Note: bonds images for all in pot of stew:
+  => all --> bulk-image-bonds-all-1.jpg
+Note: angles images for all in pot of stew:
+  => all --> bulk-image-angles-all-1.jpg
+
+
+Note: images for file: < data-qm-molnm-21442.txt >
+Note: bonds images for all in pot of stew:
+  => all --> bulk-image-bonds-all-2.jpg
+Note: angles images for all in pot of stew:
+  => all --> bulk-image-angles-all-2.jpg
+
+
+Note: images for file: < data-qm-molnm-32071.txt >
+Note: bonds images for all in pot of stew:
+  => all --> bulk-image-bonds-all-3.jpg
+Note: angles images for all in pot of stew:
+  => all --> bulk-image-angles-all-3.jpg
+
+
+Note: images for file: < data-qm-molnm-42697.txt >
+Note: bonds images for all in pot of stew:
+  => all --> bulk-image-bonds-all-4.jpg
+Note: angles images for all in pot of stew:
+  => all --> bulk-image-angles-all-4.jpg
+
+
+Note: images for file: < data-qm-molnm-53292.txt >
+Note: bonds images for all in pot of stew:
+  => all --> bulk-image-bonds-all-5.jpg
+Note: angles images for all in pot of stew:
+  => all --> bulk-image-angles-all-5.jpg
+
+
+Note: images for file: < data-qm-molnm-5361.txt >
+Note: bonds images for all in pot of stew:
+  => all --> bulk-image-bonds-all-6.jpg
+Note: angles images for all in pot of stew:
+  => all --> bulk-image-angles-all-6.jpg
+
+
+Note: overall filtration on all files
+Note: bonds images for overall in pot of stew:
+  => overall --> bulk-image-bonds-all-7.jpg
+Note: angles images for overall in pot of stew:
+  => overall --> bulk-image-angles-all-7.jpg

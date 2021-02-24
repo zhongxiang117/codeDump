@@ -1,0 +1,31 @@
+This is the explanation for running scripts;
+
+On python version 3, third package required < matplotlib >
+
+
+
+To check its help usage;
+
+python[3] filter-1.80.py -h
+
+
+
+Run the samples for test;
+
+1) single inputs:
+    python[3] filter-1.80.py -f long*
+
+    OR silently, without double check:
+        python[3] filter-1.80.py -f long* -nc
+
+
+2) multiple inputs:
+    python[3] filter-1.80.py -f data* -d index*
+
+    OR silently, without double check:
+        python[3] filter-1.80.py -f data* -d index* -nc
+
+
+
+
+
