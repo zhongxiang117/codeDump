@@ -300,9 +300,15 @@ for cnt,rsys in enumerate(root_system):
                         print('Fatal: how could it be? -- atom-label')
                         exit()
                     dx = abs(pa[1]-ra[1])
-                    dy = abs(pa[2]-ra[2])
-                    dz = abs(pa[3]-ra[3])
-                    if dx+dy+dz > 0.000001: bo = False
+                    if dx > 0.000001:
+                        bo = False
+                    else:
+                        dy = abs(pa[2]-ra[2])
+                        if dy > 0.000001:
+                            bo = False
+                        else:
+                            dz = abs(pa[3]-ra[3])
+                            if dz > 0.000001: bo = False
         else:
             print('Fatal: how could it be? -- molnms')
             exit()
