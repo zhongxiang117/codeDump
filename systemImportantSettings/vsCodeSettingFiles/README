@@ -1,0 +1,18 @@
+My Microsoft VSCode configurations
+
+
+script file contains all currently useful extensions.
+
+
+Folder myJSON contains my JSON settings.
+
+
+VSCode default JSON location:
+    Windows: %APPDATA%\Code\User\settings.json
+    macOS  : $HOME/Library/Application Support/Code/User/settings.json
+    Linux  : $HOME/.config/Code/User/settings.json
+
+copy and paste myJSON files to its default path.
+
+Then, everything will be done.
+

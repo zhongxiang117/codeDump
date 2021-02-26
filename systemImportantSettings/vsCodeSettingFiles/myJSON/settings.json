@@ -1,0 +1,138 @@
+{
+    "editor.fontSize": 16,
+    "editor.suggestSelection": "first",
+    "editor.insertSpaces": true,
+    "editor.renderIndentGuides": true,
+    "editor.minimap.enabled": true,
+    "editor.renderWhitespace": "all",
+    "editor.quickSuggestions": {
+        "other": true,
+        "comments": true,
+        "strings": true,
+    },
+
+    "workbench.colorCustomizations": {
+        "editor.lineHighlightBackground": "#333333",
+        "activityBar.activeBackground": "#1b9c9c",
+        "breadcrumb.background": "#1a3a3d",
+        "badge.background": "#6f9408",
+        "tab.activeBackground": "#30795a",
+    },
+    "workbench.tree.renderIndentGuides": "always",
+    "workbench.tree.indent": 20,
+
+
+    // File Association
+    "files.associations": {
+        "*.csh": "shellscript",
+        "*.f": "fortran_fixed-form",
+        "*.liquid": "liquid",
+    },
+
+    // Language python -- extension
+    "code-runner.runInTerminal": true,
+
+    //code file map
+    "code-runner.executorMap":{
+        "fortran_fixed-form": "cd $dir && gfortran $fileName -o $fileNameWithoutExt && ./$fileNameWithoutExt",
+        "java": "cd $dir && javac $fileName && CLASSPATH=$CLASSPATH:$workspaceRoot; java $fileNameWithoutExt",
+        "c": "cd $dir && gcc $fileName -o $fileNameWithoutExt && $dir$fileNameWithoutExt",
+        "python": "cd $dir && python3 $fileName",
+    }, 
+
+
+    //matlab
+    "matlab.matlabpath": "/usr/local/MATLAB/R2016b/bin/matlab",
+    "matlab.mlintpath": "/usr/local/MATLAB/R2016b/bin/glnxa64/mlint",
+
+    //modern fortran -- extension 
+    "fortran.gfortranExecutable": "/usr/bin/gfortran",
+    "[fortran_fixed-form]": {
+        "editor.tabSize": 3,
+        "editor.rulers": [5,6,72,80],
+    },
+    "[python]": {
+        "editor.rulers": [80,],
+    },
+    "fortran.symbols": [
+        "function",
+        "subroutine",
+        "variable",
+    ],
+
+    // indenticator -- extension
+    "indenticator.showHighlight": true,
+    "indenticator.width": 1,
+    "indenticator.color.dark": "#ff0000",
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features",
+    },
+    
+
+    //JS-CSS-HTML -- extension
+    "[javascript]": {
+        "editor.defaultFormatter": "lonefy.vscode-JS-CSS-HTML-formatter"
+    },
+    "[html]": {
+        "editor.defaultFormatter": "vscode.html-language-features",
+        "editor.suggest.insertMode": "replace",
+        "editor.tabSize": 2,
+    },
+    "workbench.iconTheme": "vscode-icons",
+    "python.jediEnabled": false,
+    "explorer.confirmDelete": false,
+    "update.mode": "manual",
+    "extensions.autoCheckUpdates": false,
+    "extensions.autoUpdate": false,
+    "vsicons.dontShowNewVersionMessage": true,
+    "files.exclude": {
+        "**/.classpath": true,
+        "**/.project": true,
+        "**/.settings": true,
+        "**/.factorypath": true
+    },
+
+    //Bracket-Pair-Colorizer
+    "bracketPairColorizer.colorMode": "Consecutive",
+    "bracketPairColorizer.consecutivePairColors":[
+        "()",
+        "[]",
+        "{}",
+        [
+            "LightSkyBlue",
+            "Gold",
+            "Orchid",
+        ],
+        "Red"
+    ],
+
+    // title bar setting
+    "window.title": "${activeEditorLong}",
+
+    //"liveServer.settings.CustomBrowser": "chrome",
+    "liveServer.settings.useBrowserPreview": true,
+    "liveServer.settings.donotShowInfoMsg": true,
+
+    "code-eol.style": {"color": "#fbb613", "opacity":0.3, },
+
+    "[ruby]": {
+        "editor.suggest.insertMode": "replace",
+        "editor.tabSize": 2,
+    },
+
+    // set all default end-of-line ending to return
+    "files.eol": "\n",
+
+    "cSpell.enableFiletypes": [
+        "markdown",
+        "ruby"
+    ],
+    "diffEditor.ignoreTrimWhitespace": false,
+    "update.showReleaseNotes": false,
+    "html.format.enable": false,
+    "liquid.format": true,
+    "editor.formatOnSave": false,
+    "java.home": "/usr/lib/jvm/openjdk-11",
+    "hediet.vscode-drawio.theme": "min",
+
+}

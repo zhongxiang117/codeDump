@@ -154,3 +154,48 @@ alias prodclean='rm -f energy* \#energy* mdout* \#mdout* prod.{cpt,log};
     rm prod_prev.cpt surf.{cpt,log} surf_prev.cpt tmp* min* npt* *err *out prod_surf*'
 
 
+
+# python server
+alias python-server="python -m http.server 8000"
+
+
+# rubygems
+if which ruby >/dev/null && which gem >/dev/null; then
+    export GEM_HOME="$(ruby -r rubygems -e 'puts Gem.user_dir')"
+    PATH="$GEM_HOME/bin:$PATH"
+fi
+
+
+
+# For future convenience, here list all the installed useful packages
+# date: March 4, 2020
+#
+#  1, Microsoft vscode (!Action: setting.json, shortcuts, extensions)
+#  2, WPS
+#  3, Foxit PDF
+#  4, Matlab
+#  5, Gaussian & GaussView (!Action: export PATH)
+#  6, Eclipse
+#  7, Flame (Screenshot)
+#  8, CopyQ (ClipboardManager)
+#  9, VMD
+# 10, Freeplane (Mindtool)
+# 11, Tweak (Gnome-tool)
+# 12, dconf-editor (Gnome-tool)
+# 13, GParted (DiskManager)
+# 14, pyenv  (!Action: ChangeInIdleScript)
+# 15, BOSS   (!Action: PATH) 
+# 16, FileZilla
+# 17, ssh & git   (Remote login & Serve setup)
+# 18, gedit  (!Action: change windowSize, style, extension)
+# 19, Sogou  (Fcitx)
+# 20, dash-to-dock (!Action: Separate Workspace) 
+# 21, Firefox & Chrome
+# 22, GNU Image Manipulation Program (photoshop alike)
+# 23, Drawio
+# 24, Oracle Virtual Machine
+# 25, GeoGebra
+# 26, VLC Media Player
+
+
+

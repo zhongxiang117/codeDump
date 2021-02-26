@@ -64,7 +64,7 @@ set title               " Set the window’s title, reflecting the file currentl
 
 
 
-set foldmethod=indent   " Fold based on indention levels.
+"set foldmethod=indent   " Fold based on indention levels.
 "set foldnestmax=3       " Only fold up to three nested levels.
 "set nofoldenable        " Disable folding by default.
 
@@ -98,4 +98,9 @@ set formatoptions+=j            " Delete comment characters when joining lines.
 "set shell                       " The shell used to execute commands.
 "set confirm                     " Display a confirmation dialog when closing an unsaved file.
 "set wildignore+=.pyc,.swp       " Ignore files matching these patterns when opening files based on a glob pattern.
+
+
+" Turn off visual mode when using mouse
+set mouse-=a
+
 
