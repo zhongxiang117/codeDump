@@ -38,8 +38,10 @@ visualstudioexptteam.vscodeintellicode
 ms-vscode.vs-keybindings
 vscode-icons-team.vscode-icons
 omoki1207.pdf
+ms-toolsai.jupyter
 '
 
+# pip3 install jupyter notebook ipykernel
 
 
 for eid in $MY_EXTENSIONS_ID; do
