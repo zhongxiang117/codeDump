@@ -36,10 +36,15 @@ FEATURES = [
     'version 2.31 : fix BulkProcess fname',
     'version 2.40 : add energy for ReadFile read_txt',
     'version 2.50 : add SaveFile xsf',
-    'version 2.60 : add file format explanation',
+    'version 2.60 : add FILEFORMAT explanation',
     'version 2.70 : fix CrossFiltration reflist',
     'version 2.80 : fix ReadFile xsf',
     'version 2.90 : make ReadFile xsf more flexible',
+    'version 3.00 : add save to xyz file',
+    'version 3.10 : make fname and ftype more compatible in save to file',
+    'version 3.20 : add read xyz file',
+    'version 3.21 : update FILEFORMAT for xyz',
+    'version 3.30 : make ReadFile more compatible',
 ]
 
 
@@ -49,33 +54,52 @@ VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
 FILEFORMAT = """
 Input File Format for BOSS Output Filtration
 
-Currently, only two types of file formats are supported.
+Currently, only following file formats are supported.
 
 For txt file:
 
-    molecules are separated by space(s), char '#' can be omitted
+    molecules are separated by new line, line starts with char '#' will
+    be ignored, if any errors happen, the whole set will be skipped.
 
-            [   #   energy
+    note: energy info has to be at the end of the first line,
+          equal sign, =, can be used.
+
+            [   # x x x [=] energy
             |   atom-1   x    y    z
     mol     |   atom-2   x    y    z
             |   atom-3   x    y    z
             |   ...
-            [   <space>
+            [   <new line>
 
 
 For xsf file:
 
     molecules are separated by '#', keyword 'ATOMS' is important,
-    case sensitive, otherwise, the whole set will be ignored,
-    follwing their warning info, to be used for double checking
+    case sensitive, if any errors happen, the whole set will be skipped.
 
-    note: energy have to be in second or fifth place
+    note: energy info has to be at the end of the first line,
+          equal sign, =, can be used.
 
-            [   #   energy   OR   # x x = energy
+            [   # x x x [=] energy
             |
             |   ATOMS
     mol     |   atom-1   x    y    z    else
             |   atom-2   x    y    z    else
+            |   atom-3   x    y    z    else
+            [   ...
+
+
+For xyz file:
+
+    molecules are separated by new line, line starts with char '#' will
+    be ignored, if any errors happen, the whole set will be skipped.
+
+    note: energy info has to be at the end of the first line,
+          equal sign, =, can be used.
+
+            [   #  x x x [=] energy
+            |   atom-1   x    y    z    else
+    mol     |   atom-2   x    y    z    else
             |   atom-3   x    y    z    else
             [   ...
 """
@@ -88,6 +112,7 @@ class ReadFile:
             format:
                 txt file
                 xsf file
+                xyz file
                 gro file (under dev)
                 pdb file (under dev)
 
@@ -102,16 +127,17 @@ class ReadFile:
         # decide file format
         if ext is None:
             ndx = file.rfind('.')
-            if ndx == -1 or ndx >= len(file) - 1:
+            if ndx == -1 or ndx + 1 >= len(file):
                 self.ext = None
             else:
                 self.ext = file[ndx+1:].lower()
             if self.ext is None: self.ext = 'txt'
-        elif ext not in ['txt','xsf',]:
-            print('Input file format: {:}'.format(ext))
-            raise ValueError('Error: input file format is not supported')
         else:
             self.ext = ext
+        
+        if self.ext not in ['txt','xsf','xyz']:
+            print('Input file format: {:}'.format(ext))
+            raise ValueError('Error: input file format is not supported')
 
 
 
@@ -122,7 +148,10 @@ class ReadFile:
             self.read_txt()
         elif self.ext == 'xsf':
             self.read_xsf()
+        elif self.ext == 'xyz':
+            self.read_xyz()
         else:
+            print('UPDATENEEDED')
             self.system = []
 
 
@@ -152,40 +181,29 @@ class ReadFile:
         prolist = []
         enelist = []
         for cnt,mol in enumerate(promol):
-            bo = True
+            bo = False
             if len(mol) <= 2:
-                bo = False
+                bo = True
                 errnum = mol[0][1] + 1
                 errline = 'Wrong format'
             else:
                 if mol[0][0][0] != '#' == -1 or mol[1][0] != 'ATOMS':
-                    bo = False
+                    bo = True
                     if mol[0][0][0] != '#':
                         errnum = mol[0][1] + 1
                     else:
                         errnum = mol[1][1] + 1
                     errline = 'Wrong format'
 
-            if bo:
+            if not bo:
                 ene = None
-                ltmp = mol[0][0].split()
-                if len(ltmp) <= 1:
-                    pass
-                elif len(ltmp) >= 2:
+                ltmp = mol[0][0].replace('=',' ').split()
+                if len(ltmp) >= 2:
                     try:
-                        ene = float(ltmp[1])
+                        ene = float(ltmp[-1])
                     except ValueError:
-                        if len(ltmp) >= 5:
-                            try:
-                                ene = float(ltmp[4])
-                            except ValueError:
-                                pass
-                else:
-                    bo = False
-                    errnum = mol[0][1] + 1
-                    errline = mol[0][0]
+                        pass
 
-            if bo:
                 ls = []
                 for t in mol[2:]:
                     # atom info
@@ -196,31 +214,30 @@ class ReadFile:
                             y = float(atom[2])
                             z = float(atom[3])
                         except ValueError:
-                            bo = False
+                            bo = True
                             errnum = t[1] + 1
                             errline = t[0]
                     else:
-                        bo = False
+                        bo = True
                         errnum = t[1] + 1
                         errline = t[0]
                     if bo:
-                        ls.append([atom[0],x,y,z])
-                    else:
                         break
+                    else:
+                        ls.append([atom[0],x,y,z])
 
             if bo:
+                print('\nWarning: line {:}: {:}'.format(errnum,errline))
+                print('Note: whole sets are omitted...\n')
+            else:
                 prolist.append(ls)
                 enelist.append(ene)
-            else:
-                print('\nWarning: line {:}: {:}'.format(errnum,errline))
-                print('Note: whole sets are omitted...')
-        
+
         self.system,self.energy = self.check_atomtype(prolist,enelist)
 
 
 
     def read_txt(self):
-        """read coordinates from txt file"""
         with open(self.file,mode='rt') as f:
             profile = f.readlines()
 
@@ -243,23 +260,22 @@ class ReadFile:
         enelist = []
         for mol in promol:
             # check whether energy exist or not
-            firstlabel = mol[0][0]
             ene = None
-            if firstlabel[0] == '#':
-                mol = mol[1:]
-                ltmp = firstlabel.split()
-                if len(ltmp) == 2:
+            if mol[0][0][0] == '#':
+                ltmp = mol[0][0].replace('=',' ').split()
+                if len(ltmp) >= 2:
                     try:
-                        ene = float(ltmp[1])
+                        ene = float(ltmp[-1])
                     except ValueError:
                         pass
+                mol = mol[1:]
 
             bo = False
             ls = []
             for t in mol:
                 # atom info
                 atom = t[0].split()
-                if len(atom) == 4:
+                if len(atom) >= 4:
                     try:
                         x = float(atom[1])
                         y = float(atom[2])
@@ -275,7 +291,82 @@ class ReadFile:
                 ls.append([atom[0],x,y,z])
             if bo:
                 print('\nWarning: line {:}: {:}'.format(errnum,errline))
-                print('Note: whole sets are omitted...')
+                print('Note: whole sets are omitted...\n')
+            else:
+                prolist.append(ls)
+                enelist.append(ene)
+
+        self.system,self.energy = self.check_atomtype(prolist,enelist)
+
+
+
+    def read_xyz(self):
+        with open(self.file,mode='rt') as f:
+            profile = f.readlines()
+
+        # List[List[[atomtype, x, y, z], ...]]
+        promol = []
+        mol = []
+        for cnt,line in enumerate(profile):
+            sub = line.strip()
+            if len(sub) == 0:
+                if len(mol) == 0: continue
+                promol.append(mol)
+                # initialize
+                mol = []
+            else:
+                mol.append([sub,cnt])
+        # last mol
+        if len(mol) != 0: promol.append(mol)
+
+        prolist = []
+        enelist = []
+        for mol in promol:
+            bo = False
+            if len(mol) <= 2: bo = True
+            if not bo:
+                try:
+                    atomnum = int(mol[0][0])
+                    if atomnum + 2 != len(mol):
+                        raise ValueError
+                except ValueError:
+                    bo = True
+
+            if bo:
+                errnum = mol[0][1] + 1
+                errline = mol[0][0]
+            else:
+                ene = None
+                # check whether energy exist or not
+                ltmp = mol[1][0].replace('=',' ').split()
+                if len(ltmp) > 1:
+                    try:
+                        ene = float(ltmp[-1])
+                    except ValueError:
+                        pass
+
+                ls = []
+                for t in mol[2:]:
+                    # atom info
+                    atom = t[0].split()
+                    if len(atom) >= 4:
+                        try:
+                            x = float(atom[1])
+                            y = float(atom[2])
+                            z = float(atom[3])
+                        except ValueError:
+                            bo = True
+                    else:
+                        bo = True
+                    if bo:
+                        errnum = t[1] + 1
+                        errline = t[0]
+                        break
+                    ls.append([atom[0],x,y,z])
+
+            if bo:
+                print('\nWarning: line {:}: {:}'.format(errnum,errline))
+                print('Note: whole sets are omitted...\n')
             else:
                 prolist.append(ls)
                 enelist.append(ene)
@@ -1277,6 +1368,8 @@ class SaveFile:
         ftype  : Output file type
             format
                 txt file
+                xsf file
+                xyz file
                 gro file    (under dev)
                 pdb file    (under dev)
 
@@ -1297,27 +1390,41 @@ class SaveFile:
         self.ftype = None
         if 'ftype' in kwargs and kwargs['ftype'] is not None:
             self.ftype = kwargs['ftype'].lower()
-            if self.ftype not in ['txt','xsf']:
-                print('Warning: current not support < {:} >'.format(self.ftype))
-                raise ValueError('not support')
 
-        self.fname = 'system'
+        self.fname = None
         if 'fname' in kwargs and kwargs['fname'] is not None:
             if len(kwargs['fname'].split()) != 0:
                 self.fname = kwargs['fname']
-                ndx = self.fname.rfind('.')
-                if ndx != -1:
-                    ext = self.fname[ndx:]
-                    self.fname = self.fname[:ndx]
-                    if self.ftype is None:
-                        if ext == '.txt':
-                            self.ftype = 'txt'
-                        elif ext == '.xsf':
-                            self.type = 'xsf'
-                    else:
-                        if ext not in ['.txt','.xsf']: self.fname += ext
+
+        if self.fname is not None and self.ftype is None:
+            # guess ftype from fname
+            ndx = self.fname.rfind('.')
+            if ndx != -1:
+                ext = self.fname[ndx:]
+                if ext == '.':
+                    self.fname = self.fname[:-1]
+                elif ext == '.txt':
+                    self.ftype = 'txt'
+                elif ext == '.xsf':
+                    self.ftype = 'xsf'
+                elif ext == '.xyz':
+                    self.ftype = 'xyz'
+
         if self.ftype is None: self.ftype = 'txt'
-        self.fname = self.fname + '.' + self.ftype
+        if self.ftype not in ['txt','xsf','xyz']:
+            print('Warning: current not support < {:} >'.format(self.ftype))
+            raise ValueError('not support')
+
+        if self.fname is None: self.fname = 'system.txt'
+        # keep dot conversion in original fname, if it has
+        ndx = self.fname.rfind('.')
+        if ndx == -1:
+            self.fname = self.fname + '.' + self.ftype
+        else:
+            ext = self.fname[ndx:]
+            if ext != '.' + self.ftype:
+                self.fname = self.fname + '.' + self.ftype
+
 
         if 'force_real_atom_type' in kwargs:
             ft = kwargs['force_real_atom_type']
@@ -1343,6 +1450,8 @@ class SaveFile:
             self.save_txt(self.system,atlist,self.fname)
         elif self.ftype == 'xsf':
             self.save_xsf(self.system,atlist,self.fname)
+        elif self.ftype == 'xyz':
+            self.save_xyz(self.system,atlist,self.fname)
 
 
 
@@ -1357,11 +1466,9 @@ class SaveFile:
                 f.write(line)
                 f.write('\n')
                 f.write('ATOMS\n')
-                ndx = 0
-                for i in mol:
-                    line = '{:3} {:>10} {:>10} {:>10}   1.0  1.0  1.0\n'.format(atlist[ndx],i[1],i[2],i[3])
+                for cnt,at in enumerate(mol):
+                    line = '{:3} {:>10} {:>10} {:>10}   1.0  1.0  1.0\n'.format(atlist[cnt],*at[1:])
                     f.write(line)
-                    ndx += 1
                 f.write('\n\n')
 
 
@@ -1375,6 +1482,23 @@ class SaveFile:
 
                 for cnt,at in enumerate(mol):
                     line = '{:<2} {:>15} {:>15} {:>15}\n'.format(atlist[cnt],*at[1:])
+                    f.write(line)
+                f.write('\n\n')
+
+
+
+    def save_xyz(self,system,atlist,fname):
+        print('Note: saving to file < {:} >'.format(fname))
+        with open(fname,'wt') as f:
+            for ndx,mol in enumerate(system):
+                line = '{:}\n'.format(len(mol))
+                if len(self.energy) != 0 and self.energy[ndx] is not None:
+                    line += 'Properties=species:S:1:pos:R:3 energy={:}\n'.format(self.energy[ndx])
+                else:
+                    line += 'Properties=species:S:1:pos:R:3 energy=0.0\n'
+                f.write(line)
+                for cnt,at in enumerate(mol):
+                    line = '{:2} {:>12} {:>12} {:>12}\n'.format(atlist[cnt],*at[1:])
                     f.write(line)
                 f.write('\n\n')
 
@@ -1473,6 +1597,10 @@ class BulkProcess:
         if len(self.indexfilelist) != 0:
             print('Note: reading all index file inputs')
             sysndxlist,tmp = self.get_datalist(self.indexfilelist)
+        
+        if len(systemlist) == 0:
+            print('Warning: no inputs')
+            return
 
         # connections only need to be calculated once
         self.get_connections(system=systemlist[0][0])
@@ -1818,8 +1946,9 @@ class BulkProcess:
             DATA = ReadFile(f)
             DATA.run()
             print('Note: for file < {:} >, number of inputs < {:} >'.format(f,len(DATA.system)))
-            datalist.append(DATA.system)
-            energylist.append(DATA.energy)
+            if len(DATA.system) != 0:
+                datalist.append(DATA.system)
+                energylist.append(DATA.energy)
         return datalist,energylist
 
 
@@ -2105,7 +2234,7 @@ def parsecmd():
     )
     parser.add_argument(
         '-ft','--ftype',
-        help='Output file type, default txt',
+        help='Output file type, [txt, xsf, xyz]',
     )
 
     if len(sys.argv) == 1:
@@ -2134,7 +2263,7 @@ def parsecmd():
         'bool_save_images'      :   True,
         'tolerance'             :   None,
         'fname'                 :   None,
-        'ftype'                 :   'txt',
+        'ftype'                 :   None,
         'obonds'                :   None,
         'oangles'               :   None,
         'opar'                  :   None,
