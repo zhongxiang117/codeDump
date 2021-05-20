@@ -1248,6 +1248,8 @@ class ParConfig:
     Args:
         system  : 2D n*nAtom : [ [Atom, ...],  ...]
 
+        userinputs (bool):  default False, if True, starts at 1
+
         po   |  pd   |  pr   |  pt      :   1D 1*3f
         ipo  |  ipd  |  ipr  |  ipt     :   int
 
@@ -1338,7 +1340,7 @@ class ParConfig:
 
         4) self.num for double-check
     """
-    def __init__(self,system,*args,v=None,
+    def __init__(self,system,*args,v=None,userinputs=None,
                 po=None,pd=None,pr=None,pt=None,pts=None,
                 ipo=None,ipd=None,ipr=None,ipt=None,ipts=None,
                 idpo=None,idpd=None,idpr=None,idpt=None,idpts=None,
@@ -1347,6 +1349,7 @@ class ParConfig:
 
         self.nice = True
         self.info = ''
+        self.userinputs = True if userinputs is True else False
 
         self.system = system
         if self.system is None:
@@ -1398,17 +1401,21 @@ class ParConfig:
         self.pt = pt
         self.pts = pts if pts is not None else []
         
-        self.ipo = ipo
-        self.ipd = ipd
-        self.ipr = ipr
-        self.ipt = ipt
-        self.ipts = ipts
+        tmp = 1 if self.userinputs else 0
+        self.ipo = ipo - tmp
+        self.ipd = ipd - tmp
+        self.ipr = ipr - tmp
+        self.ipt = ipt - tmp
+        self.ipts = [i-tmp for i in ipts]
 
-        self.idpo = idpo
-        self.idpd = idpd
-        self.idpr = idpr
-        self.idpt = idpt
-        self.idpts = idpts
+        self.idpo = [idpo[0]-tmp, idpo[1]-tmp]
+        self.idpd = [idpd[0]-tmp, idpd[1]-tmp]
+        self.idpr = [idpr[0]-tmp, idpr[1]-tmp]
+        self.idpt = [idpt[0]-tmp, idpt[1]-tmp]
+        self.idpts = [[i[0]-tmp, i[1]-tmp] for i in idpts]
+
+        # finally always set to False
+        self.userinputs = False
 
         # conclude all target points into idpts
         if idpts is None: self.idpts = []
@@ -1563,13 +1570,14 @@ class ParConfig:
             return False
         if not isinstance(p,int) or p < 0:
             self.nice = False
-            self.info = 'Fatal: not an integer: {:}: {:}'.format(pid,p)
+            self.info = 'Fatal: not a positive integer: {:}: {:}'.format(pid,p)
             return True
         return False
 
 
 
     def _check_id(self,pid,p):
+        tmp = 1 if self.userinputs else 0
         if p is None:
             return False
         if not isinstance(p,list):
@@ -1580,11 +1588,11 @@ class ParConfig:
             self.nice = False
             self.info = 'Fatal: length should be 2 [mol-ndx, atom-ndx]: {:}: {:}'.format(pid,p)
             return True
-        if len(self.system) < p[0]:
+        if len(self.system) < p[0]-tmp:
             self.nice = False
             self.info = 'Fatal: molecule index too large: {:}: {:}'.format(pid,p)
             return True
-        if len(self.system[p[0]]) < p[1]:
+        if len(self.system[p[0]-tmp]) < p[1]-tmp:
             self.nice = False
             self.info = 'Fatal: atom index too large: {:}: {:}'.format(pid,p)
             return True
@@ -2780,7 +2788,7 @@ class FixBonds:
                 if bo:
                     self.bcon.remove(ndx)
                     self.filters.append(con)
-    
+
 
 
     def check_user_inputs(self,bcon):
@@ -3051,33 +3059,82 @@ def test_class_FixNonbonds():
 
 
 
+class GenConfig:
+    """configure generation parameters
+
+    Note:
+        this is the after process, thus everything should be fine
+
+    logical:
+        userinputs      :   default False, if True, starts at 1
+
+        gmode:
+            all         :   think system as a whole
+            same        :   only same molecule inside system
+            others      :   only other molecules
+
+        pmode:
+            all
+            same
+            others
+
+        if idpts exist:
+            normal
+        else idpts not exist:
+            gmode
+
+        po,pd,pt,pr     >       ipo,ipd,ipt,ipr
+        if point exist:
+            normal
+        else point not exist:
+            pmode
+    """
+    def __init__(self,system,*args,gmode=None,pmode=None,userinputs=None,
+                po=None,pd=None,pt=None,pr=None,idpts=None,**kwargs):
+        self.nice = True
+        self.info = ''
+        self.userinputs = True if userinputs is True else False
+
+
+
+
+
+
+
+
+
+
+
 class GenBonds(VaryBond,FixNonBonds):
     def __init__(self,system,*args,**kwargs):
         bo = False
         if 'idpts' not in kwargs or kwargs['idpts'] is None:
             bo = True
             kwargs['idpts'] = [[0,0]]
-        VaryBond.__init__(self,system,**kwargs)
-        if not self.nice:
-            print(self.info)
-            return
+        
+        # make sure Initialization work
+        bo = False
+        bopts = True if 'pts' in kwargs and kwargs['pts'] is not None else False
+        boipts = True if 'ipts' in kwargs and kwargs['ipts'] is not None else False
+        boidpts = True if 'idpts' in kwargs and kwargs['idpts'] is not None else False
+        if not bopts and not boipts and not boidpts:
+            bo = True
+            kwargs['idpts'] = [[0,0]]
+        VaryBond.__init__(self,system,*args,**kwargs)
+        if not self.nice: return
         if bo:
             self.idpts = None
             self.calc_pars()
 
         # be aware in here, system is added an additional dimension
         FixNonBonds.__init__(self,[system],**self.kwargs)
-        if not self.nice:
-            print(self.info)
-            return
+        if not self.nice: return
 
 
 
     def calc_pars(self):
-        self._calc_accumulates()
-
         # format:
-        #       dual|single     num-pts     [kwargs, kwargs ...]
+        #       dual|single     vary-num-pts     [kwargs, kwargs ...]
         n = sum([len(i) for i in self.system])
         self.totpars = {'dual':{}, 'single':{}}
         self.totnews = {'dual':{}, 'single':{}}
@@ -3088,7 +3145,7 @@ class GenBonds(VaryBond,FixNonBonds):
             self.totnews['dual'][p] = []
             self.totnews['single'][p] = []
 
-        if self.idpts is None:
+        if self.idpts is None or len(self.idpts) == 0:
             bopo = True if 'po' in self.kwargs and self.kwargs['po'] is not None else False
             bopd = True if 'pd' in self.kwargs and self.kwargs['pd'] is not None else False
             if (not bopo) and (not bopd):
@@ -3096,8 +3153,8 @@ class GenBonds(VaryBond,FixNonBonds):
                     for j in range(n):
                         if j == i: continue
 
-                        ai = self.calc_indexs(i)
-                        aj = self.calc_indexs(j)
+                        ai = self.calc_pi(i)
+                        aj = self.calc_pi(j)
 
                         # only direction point
                         # be aware, idpts should be in 2D
@@ -3176,8 +3233,6 @@ class GenBonds(VaryBond,FixNonBonds):
 
                 self.totnews['dual'][nm].append(self.sysnew)
 
-
-
         pars = self.totpars['single']
         for nm in pars:
             for p in pars[nm]:
@@ -3193,42 +3248,6 @@ class GenBonds(VaryBond,FixNonBonds):
 
 
 
-    def calc_indexs(self,atoms):
-        """calculate individual index to [mol-index, atom-index]
-
-        Args:
-            atoms: int | 1D 1*ni
-
-        Return:
-            1D 1*2i     [int, int]          for int
-            2D n*2i     [[int,int], ...]    Otherwise
-        """
-        if isinstance(atoms,int):
-            for i,nm in enumerate(self._acclist):
-                if atoms < nm:
-                    mi = i - 1
-                    ai = atoms - self._acclist[i-1]
-                    break
-            return [mi,ai]
-
-        reflist = []
-        for atnum in atoms:
-            for i,nm in enumerate(self._acclist):
-                if atnum < nm:
-                    mi = i - 1
-                    ai = atnum - self._acclist[i-1]
-                    break
-            reflist.append([mi,ai])
-        return reflist
-
-
-    def _calc_accumulates(self):
-        tmplist = [len(i) for i in self.system]
-        self._acclist = [0,]
-        tot = 0
-        for i in tmplist:
-            tot += i
-            self._acclist.append(tot)
 
 
 
