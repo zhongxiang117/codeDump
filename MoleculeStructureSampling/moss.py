@@ -3059,44 +3059,109 @@ def test_class_FixNonbonds():
 
 
 
-class GenConfig:
-    """configure generation parameters
+class GenCheck:
+    """check generation parameters
 
     Note:
-        this is the after process, thus everything should be fine
+        1) this is called after parameters check
+        2) this is not a parent class
 
     logical:
-        userinputs      :   default False, if True, starts at 1
-
-        gmode:
+        pmode:
             all         :   think system as a whole
             same        :   only same molecule inside system
             others      :   only other molecules
-
-        pmode:
-            all
-            same
-            others
-
-        if idpts exist:
-            normal
-        else idpts not exist:
-            gmode
-
-        po,pd,pt,pr     >       ipo,ipd,ipt,ipr
-        if point exist:
-            normal
-        else point not exist:
-            pmode
+        
+        gmode:
+            all     | a
+            same    | s     : get idpts from mol where either po or pd locates
+            samepo  | so    : only same with po
+            samepd  | sd
+            diff    | d     : get idpts from different mol contains neither po nor pd
+            diffpo  | do    : only differ from po
+            diffpd  | dd
     """
-    def __init__(self,system,*args,gmode=None,pmode=None,userinputs=None,
+    def __init__(self,*args,userinputs=None,gmode=None,gaims=None,pmode=None,
                 po=None,pd=None,pt=None,pr=None,idpts=None,**kwargs):
         self.nice = True
         self.info = ''
-        self.userinputs = True if userinputs is True else False
+
+        if gmode is None or gmode in ['all','a']
+            self.gmode = 'all'
+        elif gmode in ['same','s']:
+            self.gmode = 'same'
+        elif gmode in ['others','other','o']:
+            self.gmode = 'others'
+        else:
+            self.nice = False
+            self.info = 'Fatal: wrong configure: gmode: {:}'.format(gmode)
+            return
+
+        if pmode is None or pmode in ['all','a']
+            self.pmode = 'all'
+        elif pmode in ['same','s']:
+            self.pmode = 'same'
+        elif pmode in ['others','other','o']:
+            self.pmode = 'others'
+        else:
+            self.nice = False
+            self.info = 'Fatal: wrong configure: pmode: {:}'.format(pmode)
+            return
+        
+        if po is None and pd is None and self.pmode != 'all':
+            self.nice = False
+            self.info = 'Fatal: conflict: pmode has to be all if po & pd not defined'
+            return
+        
+        if gmode is None or gmode in ['all','a']:
+            self.gmode = 'all'
+        elif gmode in ['same','s']:
+            self.gmode = 'same'
+        elif gmode in ['samepo','so']:
+            self.gmode = 'samepo'
+        elif gmode in ['samepd','sd']:
+            self.gmode = 'samepd'
+        elif gmode in ['diff','d']:
+            self.gmode = 'diff'
+        elif gmode in ['diffpo','do']:
+            self.gmode = 'diffpo'
+        elif gmode in ['diffpd','dd']:
+            self.gmode = 'diffpd'
+        else:
+            self.nice = False
+            self.info = 'Fatal: wrong configure: gmode: {:}'.format(gmode)
+            return
+        if idpts is None: self.gmode = 'all'
+        
+        tmp = False if userinputs is False else True
+        self.ipo = None if ipo is None else [ipo[0]-tmp,ipo[1]-tmp]
+        self.ipd = None if ipd is None else [ipd[0]-tmp,ipd[1]-tmp]
+        self.ipt = None if ipt is None else [ipt[0]-tmp,ipt[1]-tmp]
+        self.ipr = None if ipr is None else [ipr[0]-tmp,ipr[1]-tmp]
+
+        if gaims is not None and isinstance(gaims,int):
+            self.nice = False
+            self.info = 'Fatal: wrong configure: gaims: {:}'.format(gaims)
+            return
 
 
 
+        def calc_pmode_pts(self,pmode,pi):
+            tmp = 1 if self.userinputs else 0
+            pi = [pi[0]-tmp, pi[1]-tmp]
+            ppts = []
+            if pmode == 'same':
+                for i,mol in enumerate(self.system):
+                    if i == pi[0]:
+                        for j,at in enumerate(self.mol):
+                            ppts.append([i,j])
+                        break
+            else:
+                for i,mol in enumerate(self.system):
+                    if i != pi[0]:
+                        for j,at in enumerate(self.mol):
+                            ppts.append([i,j])
+            return ppts
 
 
 
@@ -3107,28 +3172,30 @@ class GenConfig:
 
 class GenBonds(VaryBond,FixNonBonds):
     def __init__(self,system,*args,**kwargs):
-        bo = False
-        if 'idpts' not in kwargs or kwargs['idpts'] is None:
-            bo = True
-            kwargs['idpts'] = [[0,0]]
-        
-        # make sure Initialization work
-        bo = False
+        # make sure initialization work
         bopts = True if 'pts' in kwargs and kwargs['pts'] is not None else False
         boipts = True if 'ipts' in kwargs and kwargs['ipts'] is not None else False
         boidpts = True if 'idpts' in kwargs and kwargs['idpts'] is not None else False
         if not bopts and not boipts and not boidpts:
-            bo = True
             kwargs['idpts'] = [[0,0]]
         VaryBond.__init__(self,system,*args,**kwargs)
         if not self.nice: return
-        if bo:
-            self.idpts = None
-            self.calc_pars()
 
         # be aware in here, system is added an additional dimension
         FixNonBonds.__init__(self,[system],**self.kwargs)
         if not self.nice: return
+
+        if not boipts and not boidpts:
+            kwargs['idpts'] = None
+        else:
+            kwargs['idpts'] = self.idpts
+
+        GenCheck.__init__(self,**kwargs)
+
+
+
+
+
 
 
 
@@ -3153,8 +3220,8 @@ class GenBonds(VaryBond,FixNonBonds):
                     for j in range(n):
                         if j == i: continue
 
-                        ai = self.calc_pi(i)
-                        aj = self.calc_pi(j)
+                        ai = self.calc_pid(i)
+                        aj = self.calc_pid(j)
 
                         # only direction point
                         # be aware, idpts should be in 2D
