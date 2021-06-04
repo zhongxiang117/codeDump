@@ -1402,17 +1402,17 @@ class ParConfig:
         self.pts = pts if pts is not None else []
         
         tmp = 1 if self.userinputs else 0
-        self.ipo = ipo - tmp
-        self.ipd = ipd - tmp
-        self.ipr = ipr - tmp
-        self.ipt = ipt - tmp
-        self.ipts = [i-tmp for i in ipts]
+        self.ipo = None if ipo is None else ipo - tmp
+        self.ipd = None if ipd is None else ipd - tmp
+        self.ipr = None if ipr is None else ipr - tmp
+        self.ipt = None if ipt is None else ipt - tmp
+        self.ipts = None if ipts is None else [i-tmp for i in ipts]
 
-        self.idpo = [idpo[0]-tmp, idpo[1]-tmp]
-        self.idpd = [idpd[0]-tmp, idpd[1]-tmp]
-        self.idpr = [idpr[0]-tmp, idpr[1]-tmp]
-        self.idpt = [idpt[0]-tmp, idpt[1]-tmp]
-        self.idpts = [[i[0]-tmp, i[1]-tmp] for i in idpts]
+        self.idpo = None if idpo is None else [idpo[0]-tmp, idpo[1]-tmp]
+        self.idpd = None if idpd is None else [idpd[0]-tmp, idpd[1]-tmp]
+        self.idpr = None if idpr is None else [idpr[0]-tmp, idpr[1]-tmp]
+        self.idpt = None if idpt is None else [idpt[0]-tmp, idpt[1]-tmp]
+        self.idpts = None if idpts is None else [[i[0]-tmp, i[1]-tmp] for i in idpts]
 
         # finally always set to False
         self.userinputs = False
@@ -1836,7 +1836,7 @@ class ParConfig:
 
 
     def calc_pid(self,pis):
-        """calculate integer to index to [mol-index, atom-index]
+        """calculate integer to index: [mol-index, atom-index]
 
         Args:
             pis: int | 1D 1*ni  :   counting starts at 0
@@ -1861,6 +1861,33 @@ class ParConfig:
                     ai = atnum - self._acclist[i-1]
                     break
             reflist.append([mi,ai])
+        return reflist
+    
+
+
+    def calc_pis(self,pid):
+        """calculate index to integer, opposite operation as calc_pid
+
+        Args:
+            1D 1*2i     [int, int]
+            2D n*2i     [[int,int], ...]
+
+        Return:
+            int
+            1D List[int]
+        """
+        if isinstance(pid[0],int):
+            aid = 0
+            for i in range(pid[0]): aid += self._acclist[i+1]
+            aid += pid[1]
+            return aid
+        
+        reflist = []
+        for at in pid:
+            aid = 0
+            for i in range(at[0]): aid += self._acclist[i+1]
+            aid += at[1]
+            reflist.append(aid)
         return reflist
 
 
@@ -3086,7 +3113,7 @@ class GenCheck:
         self.nice = True
         self.info = ''
 
-        if gmode is None or gmode in ['all','a']
+        if gmode is None or gmode in ['all','a']:
             self.gmode = 'all'
         elif gmode in ['same','s']:
             self.gmode = 'same'
@@ -3097,7 +3124,7 @@ class GenCheck:
             self.info = 'Fatal: wrong configure: gmode: {:}'.format(gmode)
             return
 
-        if pmode is None or pmode in ['all','a']
+        if pmode is None or pmode in ['all','a']:
             self.pmode = 'all'
         elif pmode in ['same','s']:
             self.pmode = 'same'
@@ -3191,11 +3218,6 @@ class GenBonds(VaryBond,FixNonBonds):
             kwargs['idpts'] = self.idpts
 
         GenCheck.__init__(self,**kwargs)
-
-
-
-
-
 
 
 
@@ -3312,6 +3334,150 @@ class GenBonds(VaryBond,FixNonBonds):
                     FixNonBonds.run(self)
 
                 self.totnews['single'][nm].append(self.sysnew)
+
+
+
+
+
+class MyGenBonds(VaryBond,FixNonBonds):
+    def __init__(self,system,*args,**kwargs):
+        self.kwargs = kwargs
+        # make sure initialization work
+        bopts = True if 'pts' in kwargs and kwargs['pts'] is not None else False
+        boipts = True if 'ipts' in kwargs and kwargs['ipts'] is not None else False
+        boidpts = True if 'idpts' in kwargs and kwargs['idpts'] is not None else False
+        if not bopts and not boipts and not boidpts:
+            kwargs['idpts'] = [[0,0]]
+        VaryBond.__init__(self,system,*args,**kwargs)
+        if not self.nice: return
+
+        # be aware in here, system is added an additional dimension
+        FixNonBonds.__init__(self,[system],**kwargs)
+        if not self.nice: return
+
+        if not boipts and not boidpts:
+            kwargs['idpts'] = None
+            self.idpts = []
+            self.calc_pars()
+        else:
+            kwargs['idpts'] = self.idpts
+
+
+    def calc_pars(self):
+        # format:
+        #       dual|single     vary-num-pts     [kwargs, kwargs ...]
+        n = sum([len(i) for i in self.system])
+        self.totpars = {'dual':{}, 'single':{}}
+        self.totnews = {'dual':{}, 'single':{}}
+        for p in range(1,n-1):
+            self.totpars['dual'][p] = []
+            self.totpars['single'][p] = []
+
+            self.totnews['dual'][p] = []
+            self.totnews['single'][p] = []
+        
+
+        if self.idpts is None or len(self.idpts) == 0:
+            bopo = True if 'po' in self.kwargs and self.kwargs['po'] is not None else False
+            bopd = True if 'pd' in self.kwargs and self.kwargs['pd'] is not None else False
+            if (not bopo) and (not bopd):
+                for i in range(n):
+                    for j in range(n):
+                        if j == i: continue
+
+                        ai = self.calc_pid(i)
+                        aj = self.calc_pid(j)
+
+                        # only direction point
+                        # be aware, idpts should be in 2D
+                        self.totpars['dual'][1].append(
+                            {
+                                'idpo': ai,
+                                'idpd': aj,
+                                'idpts': [aj],
+                                'inc': 0.03,
+                                'ratio': 3,
+                            }
+                        )
+                        self.totpars['dual'][1].append(
+                            {
+                                'idpo': ai,
+                                'idpd': aj,
+                                'idpts': [aj],
+                                'inc': 0.03,
+                                'ratio': 0.3,
+                            }
+                    )
+
+                        s = [k for k in range(n) if k != i and k != j]
+                        for r in range(1,n-1):
+                            for ndx in itertools.combinations(s,r):
+                                mm = self.calc_pid(ndx)
+                                if r != n - 2:
+                                    # Care! shallow copy of aj
+                                    mm_with_aj = [aj, ]
+                                    mm_with_aj.extend(mm)
+
+                                    # dual when contains direction point
+                                    self.totpars['dual'][r+1].append(
+                                        {
+                                            'idpo': ai,
+                                            'idpd': aj,
+                                            'idpts': mm_with_aj,
+                                            'inc': 0.03,
+                                            'ratio': 3,
+                                        }
+                                    )
+                                    self.totpars['dual'][r+1].append(
+                                        {
+                                            'idpo': ai,
+                                            'idpd': aj,
+                                            'idpts': mm_with_aj,
+                                            'inc': 0.03,
+                                            'ratio': 0.3,
+                                        }
+                                    )
+
+                                # single when no direction point
+                                self.totpars['single'][r].append(
+                                    {
+                                        'idpo': ai,
+                                        'idpd': aj,
+                                        'idpts': mm,
+                                        'inc': 0.03,
+                                        'ratio': 3,
+                                    }
+                                )
+
+
+
+    def run(self):
+        pars = self.totpars['dual']
+        for nm in pars:
+            for p in pars[nm]:
+                VaryBond.__init__(self,self.system,**p)
+                VaryBond.run(self)
+
+                if self.bcon is not None and len(self.bcon) != 0:
+                    FixBonds.run(self)
+                if self.nbcon is not None and len(self.nbcon) != 0:
+                    FixNonBonds.run(self)
+
+                self.totnews['dual'][nm].append(self.sysnew)
+
+        pars = self.totpars['single']
+        for nm in pars:
+            for p in pars[nm]:
+                VaryBond.__init__(self,self.system,**p)
+                VaryBond.run(self)
+
+                if self.bcon is not None and len(self.bcon) != 0:
+                    FixBonds.run(self)
+                if self.nbcon is not None and len(self.nbcon) != 0:
+                    FixNonBonds.run(self)
+
+                self.totnews['single'][nm].append(self.sysnew)
+
 
 
 
@@ -3530,12 +3696,22 @@ class SaveFileSystemMany(SaveFileSystemSingle):
         self.showcase = False
         if 'showcase' in kwargs and kwargs['showcase'] is True:
             self.showcase = True
+            fmt = kwargs['showcase_format'] if 'showcase_format' in kwargs else None
+            if fmt is None:
+                self.showcase_format = 'xyz'
+            elif fmt.low() in ['com']:
+                self.showcase_format = 'com'
+            else:
+                self.showcase_format = 'xyz'
 
 
 
     def run(self):
         if self.showcase:
-            self.run_all()
+            if self.showcase_format == 'com':
+                self.run_all_com()
+            elif self.showcase_format == 'xyz':
+                self.run_all_xyz()
             return
         with open(self.fname,'wt') as f:
             for each in self.system:
@@ -3543,7 +3719,7 @@ class SaveFileSystemMany(SaveFileSystemSingle):
 
 
 
-    def run_all(self):
+    def run_all_com(self):
         name = self.fname[:self.fname.rfind('.')] + '.com'
         with open(name,'wt') as f:
             f.write('#\n\nMOSS showcase\n\n0 1\n')
@@ -3553,6 +3729,24 @@ class SaveFileSystemMany(SaveFileSystemSingle):
                         l = '{:2} {:>15.8f} {:>15.8f} {:>15.8f}\n'.format(at.s,*at.xyz)
                         f.write(l)
             f.write('\n\n\n')
+    
+
+
+    def run_all_xyz(self):
+        name = self.fname[:self.fname.rfind('.')] + '.xyz'
+        atnms = 0
+        rxyzs = ''
+        for each in self.system:
+            for mol in each:
+                for at in mol:
+                    l = '{:2} {:>15.8f} {:>15.8f} {:>15.8f}\n'.format(at.s,*at.xyz)
+                    rxyzs += l
+                    atnms += 1
+        with open(name,'wt') as f:
+            f.write('{:}\n# MOSS showcase\n'.format(atnms))
+            f.write(rxyzs)
+            f.write('\n\n\n')
+
 
 
 
@@ -3638,6 +3832,36 @@ def save_genbonds():
             SFS.run()
 
 
+def func_vb(n):
+    """calculate total number of bonds variations
+    n (int): number of atoms
+
+    Return:
+        dual (int)
+        single (int)
+        dual + single
+    """
+    if n <= 1: return 0,0,0
+    if n <= 2: return 2,0,2
+    dual = 0
+    single = 0
+    for i in range(n):
+        for j in range(n):
+            if j == i: continue
+            # dual -> 1
+            dual += 2
+            s = [k for k in range(n) if k != i and k != j]
+            for r in range(1,n-1):
+                for ndx in itertools.combinations(s,r):
+                    if r != n - 2:
+                        # dual -> many
+                        dual += 2
+                    # single
+                    single += 1
+    return dual,single,dual+single
+
+
+
 def gen_bonds_overall():
     ai = AtomInfo()
     ftxt = """
@@ -3693,7 +3917,90 @@ def gen_bonds_overall():
     SFS.run()
 
 
-gen_bonds_overall()
+def my_sn2_genbonds():
+    ftxt = """
+         C     0.000   0.000   0.000
+        Cl     2.315   0.000   0.000
+        Cl    -2.315  -0.000   0.001
+
+         H    -0.002  -0.611   0.899
+         H    -0.002  -0.473  -0.978
+         H    -0.002   1.084   0.080
+    """
+    fp = tempfile.TemporaryFile()
+    fp.write(ftxt.encode('utf-8'))
+    # reset fp pointer
+    fp.seek(0)
+    RF = ReadFileMultiple(fp.name)
+    # fp will be destoried inside open!
+    RF.run()
+    
+    system = FAI.guess_atoms_for_system(RF.system)
+
+
+    GB = MyGenBonds(system)
+    if not GB.nice:
+        print(GB.info)
+        return
+    GB.run()
+
+
+    overall = []
+    nameall = []
+
+    pars = GB.totpars['dual']
+    news = GB.totnews['dual']
+    for nm in pars:
+        for cnt,kw in enumerate(pars[nm]):
+            # back to human readable by adding 1
+            ipo = GB.calc_pis(kw['idpo']) + 1
+            ipd = GB.calc_pis(kw['idpd']) + 1
+
+            systems = news[nm][cnt]
+            overall.append(systems)
+            
+            ipts = []
+            for pid in kw['idpts']: ipts.append(GB.calc_pis(pid)+1)
+            want = 'more' if kw['ratio'] >= 1.0 else 'less'
+            name = 'vb-dual-' + want + '-' + str(ipo) + '-' + str(ipd) + '+'
+            name += '+'.join([str(i) for i in ipts]) + '-m' + str(len(systems))
+            nameall.append(name)
+
+
+    pars = GB.totpars['single']
+    news = GB.totnews['single']
+    for nm in pars:
+        for cnt,kw in enumerate(pars[nm]):
+            # back to human readable by adding 1
+            ipo = GB.calc_pis(kw['idpo']) + 1
+            ipd = GB.calc_pis(kw['idpd']) + 1
+
+            systems = news[nm][cnt]
+            overall.append(systems)
+            
+            ipts = []
+            for pid in kw['idpts']: ipts.append(GB.calc_pis(pid)+1)
+            want = 'more' if kw['ratio'] >= 1.0 else 'less'
+            name = 'vb-single-' + want + '-' + str(ipo) + '-' + str(ipd) + '+'
+            name += '+'.join([str(i) for i in ipts]) + '-m' + str(len(systems))
+            nameall.append(name)
+
+
+    for n,systems in enumerate(overall):
+        fname = nameall[n]
+        SFS = SaveFileSystemMany(systems,fname=fname)
+        SFS.run()
+
+
+
+
+
+
+my_sn2_genbonds()
+
+
+
+
 
 DONE = 'all done'
 print(DONE)
