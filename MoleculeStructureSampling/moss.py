@@ -3993,13 +3993,210 @@ def my_sn2_genbonds():
 
 
 
+def func_shell(po,pd,pt,inc=None):
+    if inc is None: inc = 0.03
+
+    t = [pt[i]-po[i] for i in range(3)]
+    d = [pd[i]-po[i] for i in range(3)]
+
+    dt = pow(sum([i*i for i in t]), 0.5)
+    md = pow(sum([i*i for i in d]), 0.5)
+    td = sum([t[i]*d[i] for i in range(3)])
+    theta = np.arccos(td/dt/md)
+    if theta > np.pi/2: theta -= np.pi/2
+    if round(theta-np.pi/2,12) == 0.0:
+        theta = 89/180*np.pi
+    elif round(theta,12) == 0.0:
+        theta = 1/180*np.pi
+
+    epsilon = dt / np.cos(theta) / md
+    l = np.tan(theta) * dt
+    mlambda = inc / l
+
+    em = epsilon * mlambda
+
+    pg = [em*d[i]+mlambda*po[i]+(1-mlambda)*pt[i] for i in range(3)]
+
+    return pg
 
 
 
-my_sn2_genbonds()
+def test_func_shell():
+    po = [0,0,0]
+    pd = [1,-1,2]
+    pt = [0,0,1]
+    inc = 2
+
+    for i in range(1,10):
+        pd = [0,i,2]
+        print(func_shell(po,pd,pt,inc=inc))
+
+
+class MyGenBondsSurroundingSampling(MyGenBonds):
+    def __init__(self,system,*args,**kwargs):
+        # make sure initialization work
+        bopts = True if 'pts' in kwargs and kwargs['pts'] is not None else False
+        boipts = True if 'ipts' in kwargs and kwargs['ipts'] is not None else False
+        boidpts = True if 'idpts' in kwargs and kwargs['idpts'] is not None else False
+        bo = False
+        if not boipts and not boidpts:
+            bo = True
+            kwargs['idpts'] = [[0,0]]
+        # pre-check
+        super().__init__(system,*args,**kwargs)
+        if not self.nice: return
+
+        if bo:
+            self.idpts = []
+            self.sample_surroundings()
+
+
+    def sample_surroundings(self):
+        # format: { iref:{iatom:[new-angle-1, new-angle-2], } }
+        self.refsys = {}
+
+        self.gc = [0.0, 0.0, 0.0]
+        for mol in self.system:
+            for at in mol:
+                self.gc[0] += at.xyz[0]
+                self.gc[1] += at.xyz[1]
+                self.gc[2] += at.xyz[2]
+        n = sum([len(i) for i in self.system])
+        self.gc = [i/n for i in self.gc]
+        self.vbrotate = 60
+
+        for iref in range(n):
+            self.refsys[iref] = {}
+            for iatom in range(n):
+                if iref == iatom: continue
+
+                # avoid vector overlap, make sure three positions are distinct
+                # any two of them: distance > 0.1
+                ndxref = self.calc_pid(iref)
+                ndxatom = self.calc_pid(iatom)
+
+                atref = self.system[ndxref[0]][ndxref[1]].xyz
+                ataim = self.system[ndxatom[0]][ndxatom[1]].xyz
+
+                bo = False
+                # check iref & gc
+                tot = [atref[i]-self.gc[i] for i in range(3)]
+                tot = [i*i for i in tot]
+                if sum(tot) > 0.01:
+                    # check iatom & gc
+                    tot = [ataim[i]-self.gc[i] for i in range(3)]
+                    tot = [i*i for i in tot]
+                    if sum(tot) > 0.01:
+                        # check iatom & iref
+                        tot = [ataim[i]-atref[i] for i in range(3)]
+                        tot = [i*i for i in tot]
+                        if sum(tot) > 0.01:
+                            bo = True
+                
+                if not bo:
+                    # no samplings
+                    self.refsys[iref][iatom] = []
+                    continue
+
+                # starting point
+                sp = func_shell(atref,self.gc,ataim,inc=self.inc)
+
+                # make deep copy of system
+                stm = [[FAI.copy_atom(at) for at in mol] for mol in self.system]
+
+                # update target atom coordinates
+                stm[ndxatom[0]][ndxatom[1]].xyz = sp
+
+                news = [stm, ]
+
+                num = int(360.0/self.vbrotate + 0.5)
+                for cnt in range(1,num):
+                    rat = rotation(atref,ataim,angle=self.vbrotate*cnt)
+
+                    x = rat[0][0]*sp[0] + rat[0][1]*sp[1] + rat[0][2]*sp[2] + rat[0][3]
+                    y = rat[1][0]*sp[0] + rat[1][1]*sp[1] + rat[1][2]*sp[2] + rat[1][3]
+                    z = rat[2][0]*sp[0] + rat[2][1]*sp[1] + rat[2][2]*sp[2] + rat[2][3]
+
+                    # make deep copy of system
+                    stm = [[FAI.copy_atom(at) for at in mol] for mol in self.system]
+                    stm[ndxatom[0]][ndxatom[1]].xyz = [x,y,z]
+
+                    news.append(stm)
+                
+                self.refsys[iref][iatom] = news
+        
+
+        for iref in range(n):
+            for iatom in range(n):
+                if iref == iatom: continue
+
+                snew = self.refsys[iref][iatom]
+                if len(snew) == 0:
+                    print('empty: {:}->{:}'.format(iref,iatom))
+                    continue
+                
+                print(iref,'->',iatom)
+                for s in snew:
+                    print('system')
+                    for mol in s:
+                        for at in mol:
+                            print(at.__dict__)
+                    print()
+                exit('here')
+
+
+def test_class_MyGenBondsSurroundingSampling():
+    ftxt = """
+         C     0.000   0.000   0.000
+        Cl     2.315   0.000   0.000
+        Cl    -2.315  -0.000   0.001
+
+         H    -0.002  -0.611   0.899
+         H    -0.002  -0.473  -0.978
+         H    -0.002   1.084   0.080
+    """
+    fp = tempfile.TemporaryFile()
+    fp.write(ftxt.encode('utf-8'))
+    # reset fp pointer
+    fp.seek(0)
+    RF = ReadFileMultiple(fp.name)
+    # fp will be destoried inside open!
+    RF.run()
+    
+    system = FAI.guess_atoms_for_system(RF.system)
+
+    gbss = MyGenBondsSurroundingSampling(system)
+
+
+test_class_MyGenBondsSurroundingSampling()
+exit('here--')
+
+
+def my_sn2_genbonds_surroundingsampling():
+    ftxt = """
+         C     0.000   0.000   0.000
+        Cl     2.315   0.000   0.000
+        Cl    -2.315  -0.000   0.001
+
+         H    -0.002  -0.611   0.899
+         H    -0.002  -0.473  -0.978
+         H    -0.002   1.084   0.080
+    """
+    fp = tempfile.TemporaryFile()
+    fp.write(ftxt.encode('utf-8'))
+    # reset fp pointer
+    fp.seek(0)
+    RF = ReadFileMultiple(fp.name)
+    # fp will be destoried inside open!
+    RF.run()
+    
+    system = FAI.guess_atoms_for_system(RF.system)
+
+    gbss = MyGenBondsSurroundingSampling(system)
 
 
 
+my_sn2_genbonds_surroundingsampling()
 
 
 DONE = 'all done'
