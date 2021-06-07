@@ -3699,7 +3699,7 @@ class SaveFileSystemMany(SaveFileSystemSingle):
             fmt = kwargs['showcase_format'] if 'showcase_format' in kwargs else None
             if fmt is None:
                 self.showcase_format = 'xyz'
-            elif fmt.low() in ['com']:
+            elif fmt.lower() in ['com']:
                 self.showcase_format = 'com'
             else:
                 self.showcase_format = 'xyz'
@@ -4032,6 +4032,32 @@ def test_func_shell():
         print(func_shell(po,pd,pt,inc=inc))
 
 
+
+def func_vbr(n,angle=None):
+    """calculate total number of bonds variations rotation
+    n (int): number of atoms
+
+    Return:
+        dual (int)
+    """
+    if n <= 1: return 0
+    angle = 60 if angle is None else angle
+    factor = int(360/angle+0.5) * 2
+    if n <= 2: return factor*2
+
+    tot = 0
+    for iref in range(n):
+        for iatom in range(n):
+            if iref == iatom: continue
+            ml = [i for i in range(n) if i != iref and i != iatom]
+            for r in range(1,n-1):
+                for tmp in itertools.combinations(ml,r):
+                    tot += 1
+    return factor*tot
+
+
+
+
 class MyGenBondsSurroundingSampling(MyGenBonds):
     def __init__(self,system,*args,**kwargs):
         # make sure initialization work
@@ -4061,13 +4087,13 @@ class MyGenBondsSurroundingSampling(MyGenBonds):
                 self.gc[0] += at.xyz[0]
                 self.gc[1] += at.xyz[1]
                 self.gc[2] += at.xyz[2]
-        n = sum([len(i) for i in self.system])
-        self.gc = [i/n for i in self.gc]
+        atomnums = sum([len(i) for i in self.system])
+        self.gc = [i/atomnums for i in self.gc]
         self.vbrotate = 60
 
-        for iref in range(n):
+        for iref in range(atomnums):
             self.refsys[iref] = {}
-            for iatom in range(n):
+            for iatom in range(atomnums):
                 if iref == iatom: continue
 
                 # avoid vector overlap, make sure three positions are distinct
@@ -4125,24 +4151,86 @@ class MyGenBondsSurroundingSampling(MyGenBonds):
                 
                 self.refsys[iref][iatom] = news
         
+        # generate corresponding pars
+        # format: {iref: iatom:     vary-num-pts: [kwargs, kwargs ...]}
+        self.overall_pars = {}
+        for iref in self.refsys:
+            self.overall_pars[iref] = {}
+            for iatom in self.refsys[iref]:
+                self.overall_pars[iref][iatom] = {}
 
-        for iref in range(n):
-            for iatom in range(n):
-                if iref == iatom: continue
+                if len(self.refsys[iref][iatom]) == 0: continue
 
-                snew = self.refsys[iref][iatom]
-                if len(snew) == 0:
-                    print('empty: {:}->{:}'.format(iref,iatom))
-                    continue
-                
-                print(iref,'->',iatom)
-                for s in snew:
-                    print('system')
-                    for mol in s:
-                        for at in mol:
-                            print(at.__dict__)
-                    print()
-                exit('here')
+                for npts in range(2,atomnums):
+                    self.overall_pars[iref][iatom][npts] = []
+
+
+                ml = [i for i in range(atomnums) if i != iref and i != iatom]
+                for npts in range(1,atomnums-1):
+                    for cl in itertools.combinations(ml,r=npts):
+                        # cl is a tuple
+                        ipts = [iatom,*cl]
+                        parmore = {
+                            'type': 'bond',
+                            'inc': self.inc,
+                            'ipo': iref,
+                            'ipd': iatom,
+                            'ratio': 2.0,
+                            'ipts': ipts,
+                        }
+
+                        parless = {
+                            'type': 'bond',
+                            'inc': self.inc,
+                            'ipo': iref,
+                            'ipd': iatom,
+                            'ratio': 0.3,
+                            'ipts': ipts,
+                        }
+
+                        self.overall_pars[iref][iatom][npts+1].append(parmore)
+                        self.overall_pars[iref][iatom][npts+1].append(parless)
+
+    def run(self):
+        # self.refsys & self.totpars
+        self.totsysnews = {}
+        # key format:
+        #   iref-iatom-vbrotate+times-varyatnums-more/less-target+target+target
+        for iref in self.refsys:
+            for iatom in self.refsys[iref]:
+                if len(self.refsys[iref][iatom]) == 0: continue
+
+                key = 'vbr-' + str(iref+1) + '-' + str(iatom+1) + '-' + str(self.vbrotate) + '+'
+                for times,system in enumerate(self.refsys[iref][iatom]):
+                    key1 = key + str(times) + '-'
+
+                    for npts in self.overall_pars[iref][iatom]:
+                        key2 = key1 + str(npts) + '-'
+                        for kw in self.overall_pars[iref][iatom][npts]:
+                            want = 'more' if kw['ratio'] > 1.0 else 'less'
+                            key3 = key2 + want + '-' + '+'.join([str(i+1) for i in kw['ipts']])
+
+
+                            VaryBond.__init__(self, system, **kw)
+                            VaryBond.run(self)
+
+                            if self.bcon is not None and len(self.bcon) != 0:
+                                FixBonds.run(self)
+                            if self.nbcon is not None and len(self.nbcon) != 0:
+                                FixNonBonds.run(self)
+
+                            self.totsysnews[key3] = self.sysnew
+                            key3 += '-m' + str(len(self.sysnew))
+                            sf = SaveFileSystemMany(self.sysnew,fname=key3)
+                            sf.run()
+
+
+        totnm = 0
+        for k in self.totsysnews:
+            totnm += len(self.totsysnews[k])
+        print(totnm)
+
+
 
 
 def test_class_MyGenBondsSurroundingSampling():
@@ -4166,37 +4254,13 @@ def test_class_MyGenBondsSurroundingSampling():
     system = FAI.guess_atoms_for_system(RF.system)
 
     gbss = MyGenBondsSurroundingSampling(system)
+    gbss.run()
 
 
 test_class_MyGenBondsSurroundingSampling()
 exit('here--')
 
 
-def my_sn2_genbonds_surroundingsampling():
-    ftxt = """
-         C     0.000   0.000   0.000
-        Cl     2.315   0.000   0.000
-        Cl    -2.315  -0.000   0.001
-
-         H    -0.002  -0.611   0.899
-         H    -0.002  -0.473  -0.978
-         H    -0.002   1.084   0.080
-    """
-    fp = tempfile.TemporaryFile()
-    fp.write(ftxt.encode('utf-8'))
-    # reset fp pointer
-    fp.seek(0)
-    RF = ReadFileMultiple(fp.name)
-    # fp will be destoried inside open!
-    RF.run()
-    
-    system = FAI.guess_atoms_for_system(RF.system)
-
-    gbss = MyGenBondsSurroundingSampling(system)
-
-
-
-my_sn2_genbonds_surroundingsampling()
 
 
 DONE = 'all done'
