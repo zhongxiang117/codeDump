@@ -46,10 +46,13 @@ FEATURES = [
     'version 3.20 : add read xyz file',
     'version 3.21 : update FILEFORMAT for xyz',
     'version 3.30 : make ReadFile more compatible',
-    'version 3.3.0  : add class AtomInfo',
+    'version 3.3.0  : BC, add class AtomInfo',
     'version 3.3.1  : refine ReadFile',
     'version 3.3.2  : refine SaveFile',
     'version 3.3.3  : refine BondPerception',
+    'version 3.3.4  : add AnglePerception',
+    'version 3.3.5  : class perceptions are done',
+    'version 3.3.6  : refine Filtration',
 ]
 
 
@@ -868,13 +871,12 @@ class BondPerception:
         userinputs (bool): if it is True, index in list starts at 1
 
     Attributes:
-        con         : all connections
-        bcon        : all bonds connection  :   2D List[[int,int], ...]
-        nbcon       : all nonbonds connection
-        fcon        : fragments connections
-        fbcon       : fragments bonds connections
-        fnbcon      : fragments nonbonds connections
-        cfnbcon     : nonbonds connections cross fragments
+        conb        : all bonds connections
+        bcon        : perceptive bonds connections
+        nconb       : all nonbonds connections
+        fconb       : fragments all bonds connections
+        fnconb      : fragments nonbonds connections
+        cfnconb     : cross fragments nonbonds connections
         fragments   : 2D List[ List[int], ... ]
         atradius    : atom radius   :   1D List[float]
     """
@@ -914,46 +916,45 @@ class BondPerception:
 
 
     def run(self):
-        self.con, self.bcon, self.nbcon = self.calc_cons(self.system,self.atradius)
+        self.conb, self.bcon, self.nconb = self.calc_bcons(self.system,self.atradius)
 
         # based on self.bcon, calculate fragments
         # note: return is zero-based
         self.fragments = self.calc_bfs(self.bcon,len(self.system))
 
-        self.fcon = []
-        self.fbcon = []
-        self.fnbcon = []
+        self.fconb = []
+        self.fnconb = []
         for ref in self.fragments:
-            fc, fbc, fnbc = self.calc_cons(self.system,self.atradius,reflist=ref)
-            self.fcon.extend(fc)
-            self.fbcon.extend(fbc)
-            self.fnbcon.extend(fnbc)
+            fc, fbc, fnbc = self.calc_bcons(self.system,self.atradius,reflist=ref)
+            self.fconb.extend(fc)
+            self.fnconb.extend(fnbc)
         
-        self.cfnbcon = []
+        self.cfnconb = []
         for i,ref in enumerate(self.fragments):
             j = i + 1
             while j < len(self.fragments):
                 for t in ref:
                     for k in self.fragments[j]:
-                        self.cfnbcon.append([t,k])
+                        if t > k: t, k = k, t
+                        if [t,k] not in self.cfnconb:
+                            self.cfnconb.append([t,k])
                 j += 1
 
         if self.userinputs:
-            self.con = [[i+1 for i in t] for t in self.con]
+            self.conb = [[i+1 for i in t] for t in self.conb]
             self.bcon = [[i+1 for i in t] for t in self.bcon]
-            self.nbcon = [[i+1 for i in t] for t in self.nbcon]
+            self.nconb = [[i+1 for i in t] for t in self.nconb]
             self.fragments = [[i+1 for i in t] for t in self.fragments]
-            self.fcon = [[i+1 for i in t] for t in self.fcon]
-            self.fbcon = [[i+1 for i in t] for t in self.fbcon]
-            self.fnbcon = [[i+1 for i in t] for t in self.fnbcon]
-            self.cfnbcon = [[i+1 for i in t] for t in self.cfnbcon]
+            self.fconb = [[i+1 for i in t] for t in self.fconb]
+            self.fnconb = [[i+1 for i in t] for t in self.fnconb]
+            self.cfnconb = [[i+1 for i in t] for t in self.cfnconb]
 
 
 
-    def calc_cons(self,system,atradius,reflist=None):
+    def calc_bcons(self,system,atradius,reflist=None):
         con = []
         bcon = []
-        nbcon = []
+        nconb = []
         reflist = list(range(len(system))) if reflist is None else reflist
         for i,ref in enumerate(system[:-1]):
             if i not in reflist: continue
@@ -969,10 +970,10 @@ class BondPerception:
                     if ds >= 0.64 and ds <= rij*rij:
                         bcon.append([i,j])
                     else:
-                        nbcon.append([i,j])
+                        nconb.append([i,j])
                     con.append([i,j])
                 j += 1
-        return con, bcon, nbcon
+        return con, bcon, nconb
 
 
 
@@ -1012,7 +1013,313 @@ class BondPerception:
 
 
 
-def test_class_BondPerception():
+class AnglePerception(BondPerception):
+    """
+    Attributes: (new)
+        cona        : all angles connections
+        acon        : perceptive angles connections
+        nacon       : all nonangles connections
+        fcona       : fragments all angles connections
+        fncona      : fragments nonangles connections
+        cfnacon     : cross two fragments nonangles connections
+        cfncona     : cross three fragments nonangles connections
+    """
+    def __init__(self,system,*args,**kwargs):
+        super().__init__(system,*args,**kwargs)
+        if not self.nice: return
+
+
+
+    def run(self):
+        super().run()
+        self.cona = []
+        self.acon = []
+        self.ncona = []
+        self.fcona = []
+        self.fncona = []
+        self.cfnacon = []
+        self.cfncona = []
+        if len(self.system) < 3: return
+
+        # take care results from BondPerception
+        if self.userinputs:
+            mybcon = [[i-1 for i in j] for j in self.bcon]
+            myfragments = [[i-1 for i in j] for j in self.fragments]
+
+        self.cona = self.calc_conas(list(range(len(self.system))))
+        self.acon = self.calc_acons(mybcon)
+
+        # deep copy
+        for ref in self.cona:
+            if ref not in self.acon:
+                self.ncona.append([i for i in ref])
+
+        for ref in myfragments:
+            newfcona = self.calc_conas(ref)
+            self.fcona.extend(newfcona)
+            gfbcon = []
+            for i in ref:
+                for zmp in mybcon:
+                    if i in zmp:
+                        gfbcon.append(zmp)
+            # it may have repeats
+            newfbcon = []
+            for i,ref in enumerate(gfbcon):
+                j = i + 1
+                bo = True
+                while j < len(gfbcon):
+                    if ref[0] in gfbcon[j] and ref[1] in gfbcon[j]:
+                        bo = False
+                        break
+                    j += 1
+                if bo:
+                    newfbcon.append(ref)
+
+            newfacon = self.calc_acons(newfbcon)
+            # deep copy
+            for ndx in newfcona:
+                if ndx not in newfacon:
+                    self.fncona.append([i for i in ndx])
+
+        for i,ref in enumerate(myfragments):
+            for j in range(i+1, len(myfragments)):
+                for k in range(j+1, len(myfragments)):
+                    for ai in ref:
+                        for aj in myfragments[j]:
+                            for ak in myfragments[k]:
+                                # center is ai
+                                if aj < ak:
+                                    self.cfncona.append([aj,ai,ak])
+                                else:
+                                    self.cfncona.append([ak,ai,aj])
+                                # center is aj
+                                if ai < ak:
+                                    self.cfncona.append([ai,aj,ak])
+                                else:
+                                    self.cfncona.append([ak,aj,ai])
+                                # center is ak
+                                if ai < aj:
+                                    self.cfncona.append([ai,ak,aj])
+                                else:
+                                    self.cfncona.append([aj,ak,ai])
+
+        for i,ref in enumerate(myfragments):
+            if len(ref) < 2: continue
+            for j in range(i+1, len(myfragments)):
+                for s in range(len(ref)):
+                    ai = ref[s]
+                    for t in range(s+1,len(ref)):
+                        aj = ref[t]
+                        for ak in myfragments[j]:
+                            # center is ai
+                            if aj < ak:
+                                self.cfnacon.append([aj,ai,ak])
+                            else:
+                                self.cfnacon.append([ak,ai,aj])
+                            # center is aj
+                            if ai < ak:
+                                self.cfnacon.append([ai,aj,ak])
+                            else:
+                                self.cfnacon.append([ak,aj,ai])
+                            # center is ak
+                            if ai < aj:
+                                self.cfnacon.append([ai,ak,aj])
+                            else:
+                                self.cfnacon.append([aj,ak,ai])
+
+        if self.userinputs:
+            self.cona = [[i+1 for i in j] for j in self.cona]
+            self.acon = [[i+1 for i in j] for j in self.acon]
+            self.ncona = [[i+1 for i in j] for j in self.ncona]
+            self.fcona = [[i+1 for i in j] for j in self.fcona]
+            self.fncona = [[i+1 for i in j] for j in self.fncona]
+            self.cfnacon = [[i+1 for i in j] for j in self.cfnacon]
+            self.cfncona = [[i+1 for i in j] for j in self.cfncona]
+
+
+
+    def calc_conas(self,nlist):
+        """calc all angles connections based on given list
+        Args:
+            nlist: 1D List[int]
+        """
+        if len(nlist) < 3: return []
+        cona = []
+        i = 0
+        while i < len(nlist):
+            j = i + 1
+            while j < len(nlist):
+                k = j + 1
+                while k < len(nlist):
+                    # center index i
+                    if nlist[j] < nlist[k]:
+                        cona.append([nlist[j], nlist[i], nlist[k]])
+                    else:
+                        cona.append([nlist[k], nlist[i], nlist[j]])
+                    # center index j
+                    if nlist[i] < nlist[k]:
+                        cona.append([nlist[i], nlist[j], nlist[k]])
+                    else:
+                        cona.append([nlist[k], nlist[j], nlist[i]])
+                    # center index k
+                    if nlist[j] < nlist[i]:
+                        cona.append([nlist[j], nlist[k], nlist[i]])
+                    else:
+                        cona.append([nlist[i], nlist[k], nlist[j]])
+                    k += 1
+                j += 1
+            i += 1
+        return cona
+
+
+
+    def calc_acons(self,bcon):
+        if len(bcon) < 2: return []
+        # rule: acon: [i,j,k]   :   i < k
+        acon = []
+        for cnt,ref in enumerate(bcon):
+            # center is ref[1]
+            i, j = ref[0], ref[1]
+            for num in range(len(bcon)):
+                if num == cnt: continue
+                if j == bcon[num][0]:
+                    k = bcon[num][1]
+                elif j == bcon[num][1]:
+                    k = bcon[num][0]
+                else:
+                    k = None
+                if k is not None:
+                    if k < i: i, k = k, i
+                    if [i,j,k] not in acon:
+                        acon.append([i,j,k])
+            # center is ref[0]
+            j, i = ref[0], ref[1]
+            for num in range(len(bcon)):
+                if num == cnt: continue
+                if j == bcon[num][0]:
+                    k = bcon[num][1]
+                elif j == bcon[num][1]:
+                    k = bcon[num][0]
+                else:
+                    k = None
+                if k is not None:
+                    if k < i: i, k = k, i
+                    if [i,j,k] not in acon:
+                        acon.append([i,j,k])
+        return acon
+
+
+
+
+def test_class_Perception():
+    def checkrepeats(mylist):
+        for i,ref in enumerate(mylist):
+            bo = False
+            for j in range(i+1,len(mylist)):
+                bo = True
+                for k in range(len(ref)):
+                    if ref[k] != mylist[j][k]:
+                        bo = False
+                        break
+                if bo:
+                    break
+            if bo:
+                return True
+        return False
+
+
+    def checklist(totlist,sublist,adjlist=None):
+        """
+        inputs: List[[int]]
+
+        check: totlist == sublist + adjlist ?
+
+        Return:
+            True    :   equals
+            False   :   wrong
+            None    :   contains
+        """
+        if checkrepeats(totlist):
+            print('Fatal: repeats on totlist')
+            return False
+        if checkrepeats(sublist):
+            print('Fatal: repeats on sublist')
+            return False
+
+        if adjlist is None:
+            adjlist = []
+            if len(totlist) < len(sublist): return False
+        else:
+            if checkrepeats(adjlist):
+                print('Fatal: repeats on adjlist')
+                return False
+            if len(totlist) < len(sublist) + len(adjlist): return False
+        
+        # check inner-length, do not modify the reference
+        sublist = [i for i in sublist]
+        sublist.extend(adjlist)
+
+        tl = [len(i) for i in totlist]
+        sl = [len(i) for i in sublist]
+        if tl[0] != sl[0] or len(set(tl)) != 1 or len(set(sl)) != 1:
+            return False
+
+        chktlist = [None for i in range(len(totlist))]
+        chkslist = [False for i in range(len(sublist))]
+        for i,ref in enumerate(totlist):
+            bo = False
+            for j,xmp in enumerate(sublist):
+                if chkslist[j]: continue
+                bo = True
+                for n in range(len(xmp)):
+                    if ref[n] != xmp[n]:
+                        bo = False
+                        break
+                if bo:
+                    chkslist[j] = True
+                    break
+            if bo:
+                chktlist[i] = True
+        
+        if False in chkslist:
+            return False
+        if None in chktlist:
+            return None
+        return True
+    
+
+    def checkobj(obj,info='mol'):
+        errinfo = 'Error: {:}:'.format(info)
+        print('Note: {:}: fragments='.format(info),obj.fragments)
+        if checklist(obj.conb, obj.bcon, obj.nconb) != True:
+            print(errinfo,'conb != bcon + nconb')
+        if min([len(i) for i in obj.fragments]) >= 2:
+            if checklist(obj.nconb, obj.fnconb, obj.cfnconb) != True:
+                print(errinfo,'nconb != fnconb + cfnconb')
+        else:
+            if checklist(obj.nconb, obj.fnconb, obj.cfnconb) == False:
+                print(errinfo,'nconb ?? fnconb + cfnconb')
+        if checklist(obj.fconb, obj.bcon, obj.fnconb) != True:
+            print(errinfo,'fconb != bcon + fnconb')
+        if checklist(obj.cona, obj.acon, obj.ncona) == False:
+            print(errinfo,'cona != acon + ncona')
+        if len(obj.fragments) >= 3:
+            if min([len(i) for i in obj.fragments]) <= 1:
+                mycfa = [i for i in obj.fncona]
+                mycfa.extend(obj.cfnacon)
+                if checklist(obj.ncona, obj.fncona, mycfa) != True:
+                    print(errinfo,'ncona != fncona + cfncona')
+            else:
+                if checklist(obj.ncona, obj.fncona, obj.cfncona) == False:
+                    print(errinfo,'-1-: ncona ?? fncona + cfncona')
+        else:
+            if checklist(obj.ncona, obj.fncona, obj.cfncona) == False:
+                    print(errinfo,'-2-: ncona ?? fncona + cfncona')
+        if checklist(obj.fcona, obj.acon, obj.fncona) == False:
+            print(errinfo,'fcona < acon + fncona')
+
+
+
     amol = [
         ['C',   -1.7051262,  -0.4420827,   1.9222438],
         ['H',   -1.3484718,  -1.4508927,   1.9222438],
@@ -1033,17 +1340,9 @@ def test_class_BondPerception():
         'fragments' : [[1,2,3,4,5,6,7,8]],
         'bcon'      : [[1,2],[1,3],[1,4],[1,5],[5,6],[5,7],[5,8]],
     }
-    bp = BondPerception(amol,**adict)
-    bp.run()
-    print('amol ==> con=',bp.con)
-    print('amol ==> bcon=',bp.bcon)
-    print('amol ==> nbcon=',bp.nbcon)
-    print('amol ==> fcon=',bp.fcon)
-    print('amol ==> fbcon=',bp.fbcon)
-    print('amol ==> fnbcon=',bp.fnbcon)
-    print('amol ==> cfnbcon=',bp.cfnbcon)
-    print('amol ==> fragments=',bp.fragments)
-    print('\n\n')
+    mf = AnglePerception(amol,**adict)
+    mf.run()
+    checkobj(mf,'amol')
 
 
     bmol = [
@@ -1063,17 +1362,9 @@ def test_class_BondPerception():
         'userinputs': True,
         'fragments' : [[1,2,3,4],[5,6,7,8]],
     }
-    bp = BondPerception(bmol,**bdict)
-    bp.run()
-    print('bmol ==> con=',bp.con)
-    print('bmol ==> bcon=',bp.bcon)
-    print('bmol ==> nbcon=',bp.nbcon)
-    print('bmol ==> fcon=',bp.fcon)
-    print('bmol ==> fbcon=',bp.fbcon)
-    print('bmol ==> fnbcon=',bp.fnbcon)
-    print('bmol ==> cfnbcon=',bp.cfnbcon)
-    print('bmol ==> fragments=',bp.fragments)
-    print('\n\n')
+    mf = AnglePerception(bmol,**bdict)
+    mf.run()
+    checkobj(mf,'bmol')
 
 
     cmol = [
@@ -1087,30 +1378,41 @@ def test_class_BondPerception():
         ['H',    2.7867490,   4.3088580,  -2.2150034],
         ['H',    1.5062945,   5.2137938,  -2.2150034],
     ]
-    #              4
+    #              5
     #              |
-    #   2--1    6--3--5     7--8--9
+    #   1--2    4--3--6     8--7--9
     cdict = {
         'userinputs': True,
         'fragments' : [[1,2],[3,4,5,6],[7,8,9]]
     }
-    bp = BondPerception(cmol,**cdict)
-    bp.run()
-    print('cmol ==> con=',bp.con)
-    print('cmol ==> bcon=',bp.bcon)
-    print('cmol ==> nbcon=',bp.nbcon)
-    print('cmol ==> fcon=',bp.fcon)
-    print('cmol ==> fbcon=',bp.fbcon)
-    print('cmol ==> fnbcon=',bp.fnbcon)
-    print('cmol ==> cfnbcon=',bp.cfnbcon)
-    print('cmol ==> fragments=',bp.fragments)
-    print('\n\n')
+    mf = AnglePerception(cmol,**cdict)
+    mf.run()
+    checkobj(mf,'cmol')
 
 
-
-
-test_class_BondPerception()
-exit('verygood')
+    dmol = [
+        ['C',  -2.8322784,   0.1898734,   0.0000000],
+        ['H',  -2.4756239,  -0.8189366,   0.0000000],
+        ['H',  -2.4756055,   0.6942716,   0.8736515],
+        ['F',  -2.3822706,   0.8262637,  -1.1022706],
+        ['N',   0.0203601,   1.2966940,   2.2276179],
+        ['Cl',  0.5837031,   2.0933603,   3.6074974],
+        ['H',   0.3536820,   0.3538809,   2.2276179],
+        ['H',   0.3536992,   1.7680942,   1.4111212],
+        ['O',   2.8367428,   2.6674334,   5.2572880],
+        ['H',   2.5162882,   3.5723693,   5.2572880],
+        ['H',   3.7967428,   2.6674334,   5.2572880],
+    ]
+    #      3          7
+    #      |          |
+    #   2--1--4    6--5--8     10--9--11
+    ddict = {
+        'userinputs': True,
+        'fragments' : [[1,2,3,4],[5,6,7,8],[9,10,11]]
+    }
+    mf = AnglePerception(dmol,**ddict)
+    mf.run()
+    checkobj(mf,'dmol')
 
 
 
@@ -1159,7 +1461,10 @@ class Filtration:
             so Sum(difference for untouched atoms) =~ 0.0,
             thus, when doing filtration, please take care of <dt>
     """
-    def __init__(self,system,*args,**kwargs):
+    def __init__(self,system,bcon=None,acon=None,btol=None,atol=None,
+                obonds=None,oangles=None,opar=None,oall=None,
+    
+    *args,**kwargs):
         self.system = system
 
         self.bcon = kwargs['bcon'] if 'bcon' in kwargs else None
