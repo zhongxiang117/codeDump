@@ -1421,9 +1421,14 @@ class Filtration:
     """Filter molecules based on Bond-Connection
 
     Inputs:
-        system : System[Mol[Atoms]] : List[List[[atomtype, x, y, z], ...]]
+        system : 3D List[ List[[atomtype, x,y,z], ...], ...]
+        userinputs (bool): if it is True, index in list starts at 1
+
         bcon : System[[atom-i, atom-j], ...] : List[[int,int], ...]
         acon : System[[atom-i, atom-j, atom-k], ...] : List[[int,int,int], ...]
+
+        btol : tolerance on bond, Angstrom
+        atol : tolerance on angle, degree
 
         obonds  :  Boolean  :  whether calculate bonds  :  default False
         oangles :  Boolean  :  whether calculate angles :  default False
@@ -1435,7 +1440,7 @@ class Filtration:
         system  :  good molecules after filtration
         sysbad  :  filtered out molecules
 
-        prob_initial : initial probability  :   dict
+        prob_begin : begin probability  :   dict
 
             keys:
                 bonds   :   List
@@ -1446,9 +1451,7 @@ class Filtration:
                     prob_par    : 3D : List[ [List[int],float] ]
                     prob_all    : 2D : List[ List[int],  float ]
 
-        prob_final :  same format as prob_initial
-
-        tolerance  :  [bond, angle]  :  [Angstrom, Degree]  : default [0.1,0.1]
+        prob_final :  same format as prob_begin
 
         bondlist   :  2D  :  List[ List[float] ]  :  good, correspond to bcon
         anglelist  :  2D  :  List[ List[float] ]  :  good, correspond to acon
@@ -1459,46 +1462,36 @@ class Filtration:
     Caution:
             Because the BOSS solute move is only for the single time move,
             so Sum(difference for untouched atoms) =~ 0.0,
-            thus, when doing filtration, please take care of <dt>
+            thus, when doing filtration, please take care of btol & atol.
     """
-    def __init__(self,system,bcon=None,acon=None,btol=None,atol=None,
+    def __init__(self,system,userinputs=None,
+                bcon=None,acon=None,btol=None,atol=None,
                 obonds=None,oangles=None,opar=None,oall=None,
-    
-    *args,**kwargs):
+                *args,**kwargs):
         self.system = system
+        self.userinputs = True if userinputs is True else False
 
-        self.bcon = kwargs['bcon'] if 'bcon' in kwargs else None
-        self.acon = kwargs['acon'] if 'acon' in kwargs else None
-        self.bondlist = []
-        self.anglelist = []
+        self.bcon = [] if bcon is None else bcon
+        self.acon = [] if acon is None else bcon
+        self.btol = 0.1 if btol is None else btol   # Angstrom
+        self.atol = 0.1 if atol is None else atol   # degree
 
-        if 'tolerance' in kwargs and kwargs['tolerance'] is not None:
-            # Angstrom, Degree
-            self.tolerance = kwargs['tolerance']
-        else:
-            self.tolerance = [0.1, 0.1]
-
-        obonds = kwargs['obonds'] if 'obonds' in kwargs else None
-        oangles = kwargs['oangles'] if 'oangles' in kwargs else None
-        opar = kwargs['opar'] if 'opar' in kwargs else None
-        oall = kwargs['oall'] if 'oall' in kwargs else None
-
-        if obonds is None:
-            self.obonds = False if self.bcon is None else True
-        else:
-            self.obonds = True if obonds is True else False
-
-        if oangles is None:
-            self.oangles = False if self.acon is None else True
-        else:
-            self.oangles = True if oangles is True else False
-
+        self.obonds = True if obonds is True else False
+        self.oangles = True if oangles is True else False
         self.opar = True if opar is True else False
         self.oall = True if oall is True else False
+        if not (self.opar or self.oall):
+            self.obonds = False
+            self.oangles = False
 
-        self.prob_initial = {'angles':[], 'bonds':[]}
+        if len(self.bcon) == 0: self.obonds = False
+        if len(self.acon) == 0: self.oangles = False
+
+        if self.userinputs:
+            self.bcon = [[i-1 for i in j] for j in self.bcon]
+            self.acon = [[i-1 for i in j] for j in self.acon]
+        self.prob_begin = {'angles':[], 'bonds':[]}
         self.prob_final = {'angles':[], 'bonds':[]}
-        self.sysbad = []
 
 
 
@@ -1510,86 +1503,53 @@ class Filtration:
             self.sysbad : filter out molecules
         """
         # to improve efficiency, bondlist only needs to be calculated once
-        bondlist = self.calc_square_bond_connection_distance()
-        anglelist = self.calc_angle_degree_values()
+        bondlist = self.calc_square_distance()
+        anglelist = self.calc_angle_degree()
 
         # increments
-        binc = self.tolerance[0] * self.tolerance[0]
-        ainc = self.tolerance[1]
+        binc = self.btol * self.btol
+        ainc = self.atol
 
-        # initial
         if self.obonds or self.oangles:
-            print('Note: calculating initial probability ...')
-            self.probability(self.prob_initial,bondlist,anglelist,binc,ainc)
-
-        reflist = self.calc_mols_filter_list(bondlist,anglelist,[binc,ainc])
-        self.reflist = reflist
-
-        # update self.system
-        # => equals to update bondlist & anglelist
-        #
-        # Similarly like:
-        #   if we have a list: [a, b, c, d, e]
-        #   we want to remove values at index [1,2,4], e.g. [b,c,e]
-        #   how can we do that?
-        #
-        # to increase efficiency, switch system, sysbad accordingly.
-        print('Note: updating system ...')
-        self.sysbad = [ndx for i,ndx in enumerate(self.system) if i in reflist]
-        self.system = [ndx for i,ndx in enumerate(self.system) if i not in reflist]
-
-        print('Note: updating bondlist & anglelist ...')
-        self.bondlist = [ndx for i,ndx in enumerate(bondlist) if i not in reflist]
-        self.anglelist = [ndx for i,ndx in enumerate(anglelist) if i not in reflist]
-
-        # final
-        if self.obonds or self.oangles:
-            print('Note: calculating final probability')
-            self.probability(self.prob_final,self.bondlist,self.anglelist,binc,ainc)
-
-
-
-    def get_reflist(self):
-        """note: it is valid after self.run() is called"""
-        return self.reflist
-
-
-
-    def probability(self,fdict,bondlist,anglelist,binc,ainc):
-        """probability exclusively for self.prob_initial & self.prob_final"""
+            print('Note: calculating begin probability ...')
         if self.obonds:
             print('  ==> bonds ...')
-            fdict['bonds'] = self.calc_probability_bonds(bondlist,binc)
-
+            self.prob_begin['bonds'] = self.calc_probs(bondlist,binc,self.opar,self.oall)
         if self.oangles:
             print('  ==> angles ...')
-            fdict['angles'] = self.calc_probability_angles(anglelist,ainc)
+            self.prob_begin['angles'] = self.calc_probs(anglelist,ainc,self.opar,self.oall)
+
+
+        self.reflist = self.calc_filterlists(bondlist,anglelist,binc,ainc)
+
+        print('Note: updating system ...')
+        self.sysbad = [ndx for i,ndx in enumerate(self.system) if i in self.reflist]
+        self.system = [ndx for i,ndx in enumerate(self.system) if i not in self.reflist]
+        print('Note: updating bondlist & anglelist ...')
+        self.bondlist = [ndx for i,ndx in enumerate(bondlist) if i not in self.reflist]
+        self.anglelist = [ndx for i,ndx in enumerate(anglelist) if i not in self.reflist]
+
+
+        if self.obonds or self.oangles:
+            print('Note: calculating final probability ...')
+        if self.obonds:
+            print('  ==> bonds ...')
+            self.prob_begin['bonds'] = self.calc_probs(bondlist,binc,self.opar,self.oall)
+        if self.oangles:
+            print('  ==> angles ...')
+            self.prob_begin['angles'] = self.calc_probs(anglelist,ainc,self.opar,self.oall)
 
 
 
-    def calc_probability_angles(self,anglelist,dt):
-        """
-        Return:
-            prob_par  : 3D : List[ [List[int],float] ]
-            prob_all  : 2D : List[ List[int],  float ]
-
-        Similar rules like bonds, please refer it for more detail
-        """
-        return self.calc_probability_bonds(anglelist,dt)
-
-
-
-    def calc_probability_bonds(self,bondlist,dt):
+    def calc_probs(self,datalist,dt,opar=None,oall=None):
         """
         Inputs:
             dt : float
 
         Return:
-
             prob_par  : 3D : List[ [List[int],float] ]
 
-                => means for any corresponding bond-length in Bond-Connection,
-                   the probability of any two molecules whose difference fall
+                => the probability of any two molecules whose difference fall
                    within defined range
 
                 explanation:
@@ -1598,7 +1558,7 @@ class Filtration:
                     B = [b1, b2, b3, b4]
                     C = [c1, c2, c3, b4]
 
-                    define its Bond-Connection index is: [[0,1], [1,2], [1,3]]
+                    define its connection index is: [[0,1], [1,2], [1,3]]
                     means bonded atom pairs in A are [a1-a2, a2-a3, a2-a4]
 
                     now, calculate their bondlist;
@@ -1608,17 +1568,17 @@ class Filtration:
                     DC = [Dc01, Dc12, Dc13]
 
                     thus, the difference of bond-length for any two molecules
-                    corresponding to Bond-Connection will be DA-DB, DA-DC, DB-DC
+                    corresponding to connection will be DA-DB, DA-DC, DB-DC
 
                     therefore a new array will be got:
                     New = [Da01-Db01, Da01-Dc01, Db01-Dc01]
 
-                    finally we can calculate molecule-bond-length probability
+                    finally we can calculate molecule-increments probability
 
 
             prob_all  : 2D : List[ List[int],  float ]
 
-                => means probability on overall bonds difference
+                => means probability on overall difference
 
                 explanation:
                     continuing top, we have already calculated DA, DB, DC
@@ -1632,67 +1592,58 @@ class Filtration:
                     following the same rule, calculate differences,
                     New = [TA-TB, TA-TC, TB-TC]
 
-                    finally we can calculate overall molecule probability
-
+                    finally we can calculate overall probability
 
         Note:
-            1) calculation is based on square values
-            2) not normalized
-            3) List[float] is corresponded with self.bcon
+            results are not normalized
         """
         def calc_list(ls,dt):
-            rmin = min(ls)
-            steps = (max(ls)- rmin) / dt
-            steps = int(steps+0.5)
-
+            stls = sorted(ls)
+            rmin = stls[0]
+            steps = (stls[-1] - rmin) / dt
+            steps = int(steps)
             # all on same values
-            if steps == 0: return [len(ls)],rmin
-
+            if steps <= 2:
+                return [len(ls)],rmin
             prolist = []
-            for v in range(steps):
-                low = rmin + v*dt
-                high = rmin + (v+1)*dt
-                cnt = 0
-                for i in ls:
-                    if i >= low and i < high:
-                        cnt += 1
-                prolist.append(cnt)
-
+            ndx = 0
+            for v in range(1,steps):
+                high = rmin + v*dt
+                for n,t in enumerate(stls[ndx:]):
+                    if t >= high:
+                        prolist.append(n+1)
+                        ndx += n + 1
+                        break
             return prolist,rmin
 
+        if len(datalist) <= 1: return [],[]
 
-        if len(bondlist) <= 1: return [],[]
-
-        # calc individual probability for each bonds
         prob_par = []
-        if self.opar:
+        if opar:
             print('    --> computation on par entry ...')
-            for cnt in range(len(bondlist[0])):
-                ls = [t[cnt] for t in bondlist]
+            for cnt in range(len(datalist[0])):
+                ls = [t[cnt] for t in datalist]
                 p = calc_list(ls,dt)
                 prob_par.append(p)
 
         prob_all = []
-        if self.oall:
+        if oall:
             print('    --> computation on molecules ...')
             # Caution! only one movement
-            #sub = [sum(i)/len(i) for i in bondlist]
-            sub = [sum(i) for i in bondlist]
-            prob_all = calc_list(sub,dt*len(bondlist[0]))
+            #sub = [sum(i)/len(i) for i in datalist]
+            sub = [sum(i) for i in datalist]
+            prob_all = calc_list(sub,dt*len(datalist[0]))
 
         return prob_par, prob_all
 
 
 
-    def calc_mols_filter_list(self,bondlist,anglelist,tolerance):
+    def calc_filterlists(self,bondlist,anglelist,btol,atol):
         """
-        Inputs:
-            tolerance  :  [bond^2, angle]  :  List
-
         Rule:
             Since the variance is only based on the single movement,
             either can be a bond or angle, so the changes on any two adjacent
-            molecules are larger than tolerance will be removed
+            molecules are smaller than tolerance will be removed
 
         Caution:
             Because the BOSS solute move is only for the single time move,
@@ -1702,212 +1653,111 @@ class Filtration:
         Return:
             reflist  :  List[int]  :  index of molecules waiting to be removed
         """
-        # note: bondlist or anglelist may not exist
-        # always in sequence: bl, al
-        if len(bondlist) != 0:
-            bl = [sum(i) for i in bondlist]
-            if len(anglelist) != 0:
-                al = [sum(i) for i in anglelist]
-                if len(bl) != len(al):
-                    print('How can it be?')
-                    raise ValueError('not correspond, Weird')
-            else:
-                al = []
-        else:
-            if len(anglelist) != 0:
-                bl = [sum(i) for i in anglelist]
-            else:
-                bl = []
-            al = []
+        # conclude
+        bal = [bondlist[i]+anglelist[i] for i in range(len(bondlist))]
+        inc = btol + atol
 
-        if len(bl) <= 3: return []
-
-        print('Note: calculating filtering list ...')
-        # sort by index
-        ndxlist = sorted(range(len(bl)),key=lambda k: bl[k])
-
-        # deal with caution 2
-        odd1 = ndxlist[-1]
-        odd2 = ndxlist[-2]
+        if len(bal) <= 3: return []
 
         # This part does is to recursively remove index, whose difference
         # separately with two adjacent values is smaller than tolerance
         #
         # for example, we have inputs like;
         #
-        #   bl      = [0.0, 0.1, 0.15, 0.18, 0.19, 0.20, 0.3, 0.4, 0.43, 0.5]
-        #   al      = [0.0, 0.1, 0.15, 0.18, 0.19, 0.20, 0.3, 0.4, 0.43, 0.5]
-        # ndxlist   =   0    1    2     3     4     5     6    7    8     9
+        #   bal      = [0.0, 0.1, 0.15, 0.18, 0.19, 0.20, 0.3, 0.4, 0.43, 0.5]
+        # ndxlist    =   0    1    2     3     4     5     6    7    8     9
         #
-        # tolerance = [0.1, 0.1]
+        # inc = 0.1
         #
         # then we will know if we remove index in [2,3,4,8], the new array
-        # blnew = [0.0, 0.1, 0.20, 0.3, 0.4, 0.5] will meet the requirement
-        #
-        # Caution:
-        #   1) round off error is ignored
-        #   2) if the last two are bad, they will be both removed
+        # balnew = [0.0, 0.1, 0.20, 0.3, 0.4, 0.5] will meet the requirement
+
+        # sort by index
+        ndxlist = sorted(range(len(bal)),key=lambda k: bal[k])
+        badel = [bal[j] - bal[ndxlist[i]] for i,j in enumerate(ndxlist[1:])]
+
+        if badel[-1] - badel[0] < inc: return []
+
         reflist = []
-        while True:
-            bdel = [bl[j] - bl[ndxlist[i]] for i,j in enumerate(ndxlist[1:])]
-            ls = []
-            cnt = 0
-            while cnt < len(bdel):
-                bo = False
-                if bdel[cnt] < tolerance[0]:
-                    ndx = cnt + 1
-
-                    # care when al not exist
-                    if len(al) != 0:
-                        da = al[ndx] - al[cnt]
-                        if da < tolerance[1]:
-                            bo = True
-                        else:
-                            cnt += 1
-                    else:
-                        bo = True
-                if bo:
-                    ls.append(ndx)
-                    cnt += 2
-                else:
-                    cnt += 1
-
-            if len(ls) == 0:
-                break
-
-            for i in ls: reflist.append(ndxlist[i])
-
-            ndxlist = [ndx for i,ndx in enumerate(ndxlist) if i not in ls]
-            if len(ndxlist) <= 1:
-                break
-
-        if odd1 in reflist and odd2 in reflist: reflist.remove(odd1)
-
+        ndx = 0
+        while ndx < len(badel):
+            if badel[ndx] < inc:
+                v = ndxlist.pop(ndx+1)
+                reflist.append(v)
+                dt = badel.pop(ndx)
+                badel[ndx] += dt
+            else:
+                ndx += 1
         return reflist
 
 
 
-    def calc_square_bond_connection_distance(self):
-        """calc atom pairs distance square based on Bond-Connection
-
+    def calc_square_distance(self):
+        """
         Return:
             bondlist : 2D : System[Mol[l1,l2, ...], ...] : List[List[float]]
 
             [l1, l2, ...] : distance square value defined in self.bcon
         """
-        print('Note: calculating bondlist ...')
-        if len(self.system) == 0 or len(self.system[0]) <= 1: return []
-
-        # note: in square value
         bondlist = []
-        if self.bcon is None:
-            for mol in self.system:
-                at1 = mol[0]
-                ls = []
-                for at2 in mol[1:]:
-                    dx = at1[1] - at2[1]
-                    dy = at1[2] - at2[2]
-                    dz = at1[3] - at2[3]
-                    tmp = dx*dx + dy*dy + dz*dz
-                    ls.append(tmp)
-                bondlist.append(ls)
-
-            self.bcon = [[0,i+1] for i in range(len(self.system[0])-1)]
-        elif len(self.bcon) != 0:
-            for mol in self.system:
-                ls = []
-                for ndx in self.bcon:
-                    at1 = mol[ndx[0]]
-                    at2 = mol[ndx[1]]
-                    dx = at1[1] - at2[1]
-                    dy = at1[2] - at2[2]
-                    dz = at1[3] - at2[3]
-                    tmp = dx*dx + dy*dy + dz*dz
-                    ls.append(tmp)
-                bondlist.append(ls)
-
+        for mol in self.system:
+            ls = []
+            for ndx in self.bcon:
+                at1 = mol[ndx[0]]
+                at2 = mol[ndx[1]]
+                dx = at1[1] - at2[1]
+                dy = at1[2] - at2[2]
+                dz = at1[3] - at2[3]
+                tmp = dx*dx + dy*dy + dz*dz
+                ls.append(tmp)
+            bondlist.append(ls)
         return bondlist
 
 
 
-    def calc_angle_degree_values(self):
-        """Angle list
-
-        Note:
-            Based on self.acon
-
-            Or;
-
-            It is based on the first input first two atoms as the reference.
-            For example, if we have a system contains many atoms bigger than 2,
-            sequentially, denote them as; A (1st), B (2nd), E (else)...
-
-            Then, angles, E-A-B will be calculated. Thus starting from third
-            atom, we have an new array, [A3, A4, A5, ...]
-
+    def calc_angle_degree(self):
+        """
         Rule:
             assume cooridnates,
 
             A (ax, ay, az)
             B (bx, by, bz)
-            E (ex, ey, ez)
+            C (cx, cy, cz)
 
             Vector,
 
-            AB = (ax-bx, ay-by, az-bz)
-            AE = (ax-ex, ay-ey, az-ez)
+            BA = (ax-bx, ay-by, az-bz)
+            BC = (cx-bx, cy-by, cz-bz)
 
-            cos<EAB> = Sum(abi*aei) / dis(AB) * dis(AE)
+            cos<ABC> = Sum(bai*bci) / dis(BA) * dis(BC)
 
-            <EAB> = math.acos(sigma) * 180.0 / math.pi
+            <ABC> = math.acos(sigma) * 180.0 / math.pi
 
         Return:
             anglelist : 2D : System[Mol[l1,l2, ...], ...] : List[List[float]]
-
-            empty list for number of atoms are less than 3
         """
-        print('Note: calculating anglelist ...')
-        if len(self.system) == 0 or len(self.system[0]) <= 2: return []
-
-        # note: in square value
         anglelist = []
         cvt = 180.0 / math.pi
-        if self.acon is None:
-            for mol in self.system:
-                A = mol[0]
-                B = mol[1]
-                AB = [A[1]-B[1],A[2]-B[2],A[3]-B[3]]
-                ls = []
-                for E in mol[2:]:
-                    AE = [A[1]-E[1],A[2]-E[2],A[3]-E[3]]
-                    tot = AB[0]*AE[0] + AB[1]*AE[1] + AB[2]*AE[2]
-                    sub = sum([i*i for i in AB]) * sum([i*i for i in AE])
-                    rst = math.acos(tot/pow(sub,0.5)) * cvt
-                    ls.append(rst)
-                anglelist.append(ls)
-
-            self.acon = [[0,1,i+2] for i in range(len(self.system[0])-2)]
-        elif len(self.acon) != 0:
-            for mol in self.system:
-                ls = []
-                for ndx in self.acon:
-                    A = mol[ndx[0]]
-                    B = mol[ndx[1]]
-                    E = mol[ndx[2]]
-                    AB = [A[1]-B[1],A[2]-B[2],A[3]-B[3]]
-                    AE = [A[1]-E[1],A[2]-E[2],A[3]-E[3]]
-                    tot = AB[0]*AE[0] + AB[1]*AE[1] + AB[2]*AE[2]
-                    sub = sum([i*i for i in AB]) * sum([i*i for i in AE])
-                    rst = math.acos(tot/pow(sub,0.5)) * cvt
-                    ls.append(rst)
-                anglelist.append(ls)
-
+        for mol in self.system:
+            ls = []
+            for ndx in self.acon:
+                a = mol[ndx[0]]
+                b = mol[ndx[1]]
+                c = mol[ndx[2]]
+                ba = [a[1]-b[1],a[2]-b[2],a[3]-b[3]]
+                bc = [c[1]-b[1],c[2]-b[2],c[3]-b[3]]
+                tot = ba[0]*bc[0] + ba[1]*bc[1] + ba[2]*bc[2]
+                sub = sum([i*i for i in ba]) * sum([i*i for i in bc])
+                rst = math.acos(tot/pow(sub,0.5)) * cvt
+                ls.append(rst)
+            anglelist.append(ls)
         return anglelist
 
 
 
-
-
+# TODO
+def test_class_Filtration():
+    pass
 
 
 
