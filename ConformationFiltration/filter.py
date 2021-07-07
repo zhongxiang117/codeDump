@@ -6,6 +6,7 @@ import math
 import argparse
 import matplotlib.pyplot as plt
 import tempfile
+import random
 
 
 FEATURES = [
@@ -909,7 +910,7 @@ class BondPerception:
                         break
             if not bo:
                 self.nice = False
-                self.info = 'Fatal: wrong defined: atom: {:}'.format(at[0])
+                self.info = 'Fatal: wrong defined: atom: {:}'.format(atom[0])
                 return
             self.atradius.append(r)
 
@@ -1464,15 +1465,16 @@ class Filtration:
             so Sum(difference for untouched atoms) =~ 0.0,
             thus, when doing filtration, please take care of btol & atol.
     """
-    def __init__(self,system,userinputs=None,
+    def __init__(self,system=None,keepndxlist=None,userinputs=None,
                 bcon=None,acon=None,btol=None,atol=None,
                 obonds=None,oangles=None,opar=None,oall=None,
                 *args,**kwargs):
         self.system = system
+        self.keepndxlist = keepndxlist
         self.userinputs = True if userinputs is True else False
 
         self.bcon = [] if bcon is None else bcon
-        self.acon = [] if acon is None else bcon
+        self.acon = [] if acon is None else acon
         self.btol = 0.1 if btol is None else btol   # Angstrom
         self.atol = 0.1 if atol is None else atol   # degree
 
@@ -1488,6 +1490,7 @@ class Filtration:
         if len(self.acon) == 0: self.oangles = False
 
         if self.userinputs:
+            self.userinputs = False
             self.bcon = [[i-1 for i in j] for j in self.bcon]
             self.acon = [[i-1 for i in j] for j in self.acon]
         self.prob_begin = {'angles':[], 'bonds':[]}
@@ -1503,8 +1506,8 @@ class Filtration:
             self.sysbad : filter out molecules
         """
         # to improve efficiency, bondlist only needs to be calculated once
-        bondlist = self.calc_square_distance()
-        anglelist = self.calc_angle_degree()
+        bondlist = self.calc_square_distance(self.system,self.bcon)
+        anglelist = self.calc_angle_degree(self.system,self.acon)
 
         # increments
         binc = self.btol * self.btol
@@ -1520,7 +1523,7 @@ class Filtration:
             self.prob_begin['angles'] = self.calc_probs(anglelist,ainc,self.opar,self.oall)
 
 
-        self.reflist = self.calc_filterlists(bondlist,anglelist,binc,ainc)
+        self.reflist = self.calc_filterlists(bondlist,anglelist,binc,ainc,self.keepndxlist)
 
         print('Note: updating system ...')
         self.sysbad = [ndx for i,ndx in enumerate(self.system) if i in self.reflist]
@@ -1620,7 +1623,7 @@ class Filtration:
 
         prob_par = []
         if opar:
-            print('    --> computation on par entry ...')
+            print('    --> computing on par entry ...')
             for cnt in range(len(datalist[0])):
                 ls = [t[cnt] for t in datalist]
                 p = calc_list(ls,dt)
@@ -1628,7 +1631,7 @@ class Filtration:
 
         prob_all = []
         if oall:
-            print('    --> computation on molecules ...')
+            print('    --> computing on system ...')
             # Caution! only one movement
             #sub = [sum(i)/len(i) for i in datalist]
             sub = [sum(i) for i in datalist]
@@ -1638,27 +1641,21 @@ class Filtration:
 
 
 
-    def calc_filterlists(self,bondlist,anglelist,btol,atol):
+    def calc_filterlists(self,bondlist,anglelist,binc,ainc,keepndxlist=None):
         """
         Rule:
             Since the variance is only based on the single movement,
             either can be a bond or angle, so the changes on any two adjacent
-            molecules are smaller than tolerance will be removed
-
-        Caution:
-            Because the BOSS solute move is only for the single time move,
+            molecules are smaller than tolerance will be removed,
             thus, dt should not multiple the total numbers,
-            because Sum(Amol untouched atoms) =~ 0.0
+            because Sum(mol untouched atoms) =~ 0.0
 
         Return:
             reflist  :  List[int]  :  index of molecules waiting to be removed
         """
+        if len(bondlist) <= 3: return []
         # conclude
-        bal = [bondlist[i]+anglelist[i] for i in range(len(bondlist))]
-        inc = btol + atol
-
-        if len(bal) <= 3: return []
-
+        bal = [sum(v)+sum(anglelist[i]) for i,v in enumerate(bondlist)]
         # This part does is to recursively remove index, whose difference
         # separately with two adjacent values is smaller than tolerance
         #
@@ -1673,36 +1670,56 @@ class Filtration:
         # balnew = [0.0, 0.1, 0.20, 0.3, 0.4, 0.5] will meet the requirement
 
         # sort by index
+        # Caution: for future debug, bal is not sorted
         ndxlist = sorted(range(len(bal)),key=lambda k: bal[k])
         badel = [bal[j] - bal[ndxlist[i]] for i,j in enumerate(ndxlist[1:])]
-
+        inc = binc + ainc
         if badel[-1] - badel[0] < inc: return []
 
         reflist = []
-        ndx = 0
-        while ndx < len(badel):
-            if badel[ndx] < inc:
-                v = ndxlist.pop(ndx+1)
-                reflist.append(v)
-                dt = badel.pop(ndx)
-                badel[ndx] += dt
-            else:
-                ndx += 1
+        if keepndxlist is None or len(keepndxlist) == 0:
+            ndx = 0
+            while ndx < len(badel):
+                if badel[ndx] < inc:
+                    v = ndxlist.pop(ndx+1)
+                    reflist.append(v)
+                    # take care of the last
+                    if ndx >= len(badel)-1: break
+                    dt = badel.pop(ndx)
+                    badel[ndx] += dt
+                else:
+                    ndx += 1
+        else:
+            ndx = 0
+            while ndx < len(badel):
+                if badel[ndx] < inc:
+                    v = ndxlist.pop(ndx+1)
+                    if v in keepndxlist:
+                        if ndx >= len(badel)-1: break
+                        # be aware in here, ndxlist has been processed
+                        v2 = ndxlist[ndx+1]
+                        badel.pop(ndx)
+                        badel[ndx] = bal[v2] - bal[v]
+                    else:
+                        reflist.append(v)
+                        if ndx >= len(badel)-1: break
+                        dt = badel.pop(ndx+1)
+                        badel[ndx] += dt
+                else:
+                    ndx += 1
         return reflist
 
 
 
-    def calc_square_distance(self):
+    def calc_square_distance(self,system,bcon):
         """
         Return:
             bondlist : 2D : System[Mol[l1,l2, ...], ...] : List[List[float]]
-
-            [l1, l2, ...] : distance square value defined in self.bcon
         """
         bondlist = []
-        for mol in self.system:
+        for mol in system:
             ls = []
-            for ndx in self.bcon:
+            for ndx in bcon:
                 at1 = mol[ndx[0]]
                 at2 = mol[ndx[1]]
                 dx = at1[1] - at2[1]
@@ -1715,7 +1732,7 @@ class Filtration:
 
 
 
-    def calc_angle_degree(self):
+    def calc_angle_degree(self,system,acon):
         """
         Rule:
             assume cooridnates,
@@ -1738,9 +1755,9 @@ class Filtration:
         """
         anglelist = []
         cvt = 180.0 / math.pi
-        for mol in self.system:
+        for mol in system:
             ls = []
-            for ndx in self.acon:
+            for ndx in acon:
                 a = mol[ndx[0]]
                 b = mol[ndx[1]]
                 c = mol[ndx[2]]
@@ -1755,10 +1772,76 @@ class Filtration:
 
 
 
-# TODO
-def test_class_Filtration():
-    pass
 
+def test_class_Filtration():
+    def checkequal(alist,blist,tol=None):
+        if tol is None: tol = 10**(-5)
+        if len(alist) != len(blist): return False
+        for i,la in enumerate(alist):
+            for t,va in enumerate(la):
+                if va - blist[i][t] > tol:
+                    return False
+        return True
+
+    rf = ReadFile('choosetest.txt')
+    if not rf.nice:
+        print(rf.info)
+        exit()
+    rf.run()
+    ltmp = list(range(len(rf.system[0])))
+    if len(ltmp) <= 4:
+        print('Fatal: atom too less, cannot debug')
+        exit()
+    bcon = []
+    for i in range(5):
+        s = random.sample(ltmp,k=2)
+        st = sorted(s)
+        if st not in bcon: bcon.append(st)
+    acon = []
+    for i in range(5):
+        s = random.sample(ltmp,k=3)
+        st = sorted(s)
+        if st not in acon: acon.append(st)
+    fd = {
+        'system'    :   rf.system,
+        'userinputs':   False,
+        'bcon'      :   bcon,
+        'acon'      :   acon,
+        'obonds'    :   True,
+        'oangles'   :   True,
+        'opar'      :   True,
+        'oall'      :   True,
+    }
+    fn = Filtration(**fd)
+    fn.run()
+
+    rawbondlist = fn.calc_square_distance(rf.system,fn.bcon)
+    rawanglelist = fn.calc_angle_degree(rf.system,fn.acon)
+
+    probondlist = [v for i,v in enumerate(rawbondlist) if i not in fn.reflist]
+    proanglelist = [v for i,v in enumerate(rawanglelist) if i not in fn.reflist]
+
+    assert checkequal(probondlist, fn.bondlist)
+    assert checkequal(proanglelist, fn.anglelist)
+
+    rawtol = fn.atol + fn.btol*fn.btol
+    print(rawtol)
+    prototal = [sum(v)+sum(proanglelist[i]) for i,v in enumerate(probondlist)]
+    stprototal = sorted(prototal)
+    print(stprototal)
+    prodel = [v-stprototal[i] for i,v in enumerate(stprototal[1:])]
+    print(prodel)
+    bocheck = [True if i >= rawtol else False for i in prodel]
+    assert all(bocheck)
+
+
+
+
+
+
+
+test_class_Filtration()
+exit('verygood')
 
 
 class CrossFiltration(Filtration):
