@@ -54,6 +54,7 @@ FEATURES = [
     'version 3.3.4  : add AnglePerception',
     'version 3.3.5  : class perceptions are done',
     'version 3.3.6  : refine Filtration',
+    'version 3.3.7  : refine BulkProcess',
 ]
 
 
@@ -1457,7 +1458,7 @@ class Filtration:
         bondlist   :  2D  :  List[ List[float] ]  :  good, correspond to bcon
         anglelist  :  2D  :  List[ List[float] ]  :  good, correspond to acon
 
-        reflist    :  1D  List[int]     :   index of for bad molecules
+        reflist    :  1D  List[int]     : sorted index of for bad molecules
 
 
     Caution:
@@ -1500,10 +1501,6 @@ class Filtration:
 
     def run(self):
         """attemption on filtering
-
-        Attributes:
-            self.system : update
-            self.sysbad : filter out molecules
         """
         # to improve efficiency, bondlist only needs to be calculated once
         bondlist = self.calc_square_distance(self.system,self.bcon)
@@ -1512,6 +1509,8 @@ class Filtration:
         # increments
         binc = self.btol * self.btol
         ainc = self.atol
+
+        if self.keepndxlist is None: self.keepndxlist = []
 
         if self.obonds or self.oangles:
             print('Note: calculating begin probability ...')
@@ -1522,25 +1521,32 @@ class Filtration:
             print('  ==> angles ...')
             self.prob_begin['angles'] = self.calc_probs(anglelist,ainc,self.opar,self.oall)
 
-
         self.reflist = self.calc_filterlists(bondlist,anglelist,binc,ainc,self.keepndxlist)
 
-        print('Note: updating system ...')
-        self.sysbad = [ndx for i,ndx in enumerate(self.system) if i in self.reflist]
-        self.system = [ndx for i,ndx in enumerate(self.system) if i not in self.reflist]
-        print('Note: updating bondlist & anglelist ...')
-        self.bondlist = [ndx for i,ndx in enumerate(bondlist) if i not in self.reflist]
-        self.anglelist = [ndx for i,ndx in enumerate(anglelist) if i not in self.reflist]
-
+        print('Note: updating ...')
+        tmpsys = []
+        self.bondlist = []
+        self.anglelist = []
+        self.sysbad = []
+        for ndx in range(len(self.system)):
+            if ndx in self.reflist:
+                self.sysbad.append(self.system[ndx])
+            else:
+                if ndx not in self.keepndxlist:
+                    tmpsys.append(self.system[ndx])
+                    self.bondlist.append(bondlist[ndx])
+                    self.anglelist.append(anglelist[ndx])
+        # alias
+        self.system = tmpsys
 
         if self.obonds or self.oangles:
             print('Note: calculating final probability ...')
         if self.obonds:
             print('  ==> bonds ...')
-            self.prob_begin['bonds'] = self.calc_probs(bondlist,binc,self.opar,self.oall)
+            self.prob_final['bonds'] = self.calc_probs(bondlist,binc,self.opar,self.oall)
         if self.oangles:
             print('  ==> angles ...')
-            self.prob_begin['angles'] = self.calc_probs(anglelist,ainc,self.opar,self.oall)
+            self.prob_final['angles'] = self.calc_probs(anglelist,ainc,self.opar,self.oall)
 
 
 
@@ -1656,6 +1662,8 @@ class Filtration:
         if len(bondlist) <= 3: return []
         # conclude
         bal = [sum(v)+sum(anglelist[i]) for i,v in enumerate(bondlist)]
+        inc = binc + ainc
+        if max(bal) - min(bal) < inc: return []
         # This part does is to recursively remove index, whose difference
         # separately with two adjacent values is smaller than tolerance
         #
@@ -1673,41 +1681,28 @@ class Filtration:
         # Caution: for future debug, bal is not sorted
         ndxlist = sorted(range(len(bal)),key=lambda k: bal[k])
         badel = [bal[j] - bal[ndxlist[i]] for i,j in enumerate(ndxlist[1:])]
-        inc = binc + ainc
-        if badel[-1] - badel[0] < inc: return []
+
+        if keepndxlist is None: keepndxlist = []
 
         reflist = []
-        if keepndxlist is None or len(keepndxlist) == 0:
-            ndx = 0
-            while ndx < len(badel):
-                if badel[ndx] < inc:
-                    v = ndxlist.pop(ndx+1)
-                    reflist.append(v)
-                    # take care of the last
+        ndx = 0
+        while ndx < len(badel):
+            if badel[ndx] < inc:
+                v = ndxlist.pop(ndx+1)
+                if v in keepndxlist:
                     if ndx >= len(badel)-1: break
-                    dt = badel.pop(ndx)
+                    # be aware in here, ndxlist has been processed
+                    v2 = ndxlist[ndx+1]
+                    badel.pop(ndx)
+                    badel[ndx] = bal[v2] - bal[v]
+                else:
+                    reflist.append(v)
+                    if ndx >= len(badel)-1: break
+                    dt = badel.pop(ndx+1)
                     badel[ndx] += dt
-                else:
-                    ndx += 1
-        else:
-            ndx = 0
-            while ndx < len(badel):
-                if badel[ndx] < inc:
-                    v = ndxlist.pop(ndx+1)
-                    if v in keepndxlist:
-                        if ndx >= len(badel)-1: break
-                        # be aware in here, ndxlist has been processed
-                        v2 = ndxlist[ndx+1]
-                        badel.pop(ndx)
-                        badel[ndx] = bal[v2] - bal[v]
-                    else:
-                        reflist.append(v)
-                        if ndx >= len(badel)-1: break
-                        dt = badel.pop(ndx+1)
-                        badel[ndx] += dt
-                else:
-                    ndx += 1
-        return reflist
+            else:
+                ndx += 1
+        return sorted(reflist)
 
 
 
@@ -1774,6 +1769,9 @@ class Filtration:
 
 
 def test_class_Filtration():
+    """
+    Be aware of a temporary file is used
+    """
     def checkequal(alist,blist,tol=None):
         if tol is None: tol = 10**(-5)
         if len(alist) != len(blist): return False
@@ -1807,10 +1805,10 @@ def test_class_Filtration():
         'userinputs':   False,
         'bcon'      :   bcon,
         'acon'      :   acon,
-        'obonds'    :   True,
-        'oangles'   :   True,
-        'opar'      :   True,
-        'oall'      :   True,
+        'obonds'    :   False,
+        'oangles'   :   False,
+        'opar'      :   False,
+        'oall'      :   False,
     }
     fn = Filtration(**fd)
     fn.run()
@@ -1825,97 +1823,22 @@ def test_class_Filtration():
     assert checkequal(proanglelist, fn.anglelist)
 
     rawtol = fn.atol + fn.btol*fn.btol
-    print(rawtol)
     prototal = [sum(v)+sum(proanglelist[i]) for i,v in enumerate(probondlist)]
     stprototal = sorted(prototal)
-    print(stprototal)
     prodel = [v-stprototal[i] for i,v in enumerate(stprototal[1:])]
-    print(prodel)
-    bocheck = [True if i >= rawtol else False for i in prodel]
-    assert all(bocheck)
+    bocheckfn = [True if i >= rawtol else False for i in prodel]
+    assert all(bocheckfn)
 
-
-
-
-
-
-
-test_class_Filtration()
-exit('verygood')
-
-
-class CrossFiltration(Filtration):
-    """filter out system based on sysndx
-
-    Inputs:
-        system : System[Mol[Atoms]] : List[List[[atomtype, x, y, z], ...]]
-        sysndx : System[Mol[Atoms]] : List[List[[atomtype, x, y, z], ...]]
-        tolerance : 1D : List[float, float] : [bond, angle]
-
-    Explanation:
-        there are two systems, we want to use sysndx as the index filter out
-        all similar molecule in system, based on given tolerance.
-
-    Note:
-        if sysndx is optional, self filtration will always be on
-    """
-    def __init__(self,system,sysndx=None,*args,**kwargs):
-        super().__init__(system,*args,**kwargs)
-        self.sysndx = sysndx
-
-    def run(self):
-        """overwrite parent method"""
-        # turn off all probability calculation
-        self.obonds = False
-        self.oangles = False
-        self.opar = False
-        self.oall = False
-
-        # self filtration
-        super().run()
-
-        self.reflist = self.get_reflist()
-
-        if self.sysndx is None:
-            # filtration is done
-            # but we still initialize sysndx to empty list
-            self.sysndx = []
-        else:
-            # cross filtration
-
-            # shallow copy
-            sysgood = self.system
-
-            # 1st, for sysndx, calculate bondlist & anglelist
-            ndxlth = len(self.sysndx)
-            self.system = self.sysndx
-            bltot = self.calc_square_bond_connection_distance()
-            altot = self.calc_angle_degree_values()
-
-            # 2nd, calculation reflist
-            binc = self.tolerance[0] * self.tolerance[0]
-            ainc = self.tolerance[1]
-
-            # append data onto sysndx results
-            # note: self.bondlist & self.anglelist are from parent
-            for i in self.bondlist: bltot.append(i)
-            for i in self.anglelist: altot.append(i)
-
-            # 3rd, calculate reflist
-            reflist = self.calc_mols_filter_list(bltot,altot,[binc,ainc])
-            reflist = [i-ndxlth for i in reflist if i > ndxlth]
-            self.reflist = reflist
-
-            # 3rd, update
-            self.system = []
-            for i,mol in enumerate(sysgood):
-                if i in reflist:
-                    self.sysbad.append(mol)
-                else:
-                    self.system.append(mol)
-
-            self.bondlist = [mol for i,mol in enumerate(self.bondlist) if i not in reflist]
-            self.anglelist = [mol for i,mol in enumerate(self.anglelist) if i not in reflist]
+    # test on fixed cross filtration
+    n = len(rf.system)
+    fd['keepndxlist'] = random.sample(range(n),random.randint(2,n))
+    fv = Filtration(**fd)
+    fv.run()
+    profv = [sum(v)+sum(fv.anglelist[i]) for i,v in enumerate(fv.bondlist)]
+    stprofv = sorted(profv)
+    prodt = [v-stprofv[i] for i,v in enumerate(stprofv[1:])]
+    bocheckfv = [True if i >= rawtol else False for i in prodt]
+    assert all(bocheckfv)
 
 
 
@@ -2036,85 +1959,106 @@ def plot_filtration_save_image(ini,fin=None,dt=None,fname=None,key=None):
 
 
 
-
 class BulkProcess:
     """bulk process for datafilelist based on indexfilelist
+
+    Inputs:
+        mode (str)  :   
+        bcon (str|list): conb, bcon, ...
+        acon (str|list): cona, acon, ...
 
     Attributes:
         overall_system  :   final good system
         overall_sysbad  :   all bad system
 
-        overall_prob_initial    :   based on read data file
-        overall_prob_final      :   based on read data file
+        overall_prob_begin  :   based on read data file
+        overall_prob_final  :   based on read data file
 
     Note:
-        fragments is input human-readable number, starting at 1
+        fragments is input as human-readable number, starting at 1
     """
-    def __init__ (self,datafilelist,*args,**kwargs):
-        fd = []
+    def __init__(self,datafilelist,indexfilelist=None,mode=None,
+                bool_save_images=None,bool_force_double_check=None,
+                *args,**kwargs):
+        self.nice = True
+        self.info = ''
+        self.datafilelist = []
         for f in datafilelist:
             if os.path.isfile(f):
-                fd.append(f)
+                self.datafilelist.append(f)
             else:
                 print('Warning: not a data file < {:} >, ignoring'.format(f))
-        self.datafilelist = fd
+        
+        if len(self.datafilelist) == 0:
+            self.nice = False
+            self.info = 'Fatal: no inputs'
+            return
 
         self.indexfilelist = []
-        if 'indexfilelist' in kwargs and kwargs['indexfilelist'] is not None:
-            fd = []
-            for f in kwargs['indexfilelist']:
+        if indexfilelist is not None:
+            for f in indexfilelist:
                 if os.path.isfile(f):
-                    fd.append(f)
+                    self.indexfilelist.append(f)
                 else:
                     print('Warning: not an index file < {:} >, ignoring'.format(f))
-            self.indexfilelist = fd
-        
-        self.bool_save_images = True
-        if 'bool_save_images' in kwargs:
-            self.bool_save_images = kwargs['bool_save_images']
-        self.bool_save_images = True if self.bool_save_images is True else False
 
-        if len(self.datafilelist) == 0:
-            print('Warning: no inputs')
-            raise ValueError('no inputs')
+        bo = False
+        if mode is None:
+            self.mode = 'update'
+        elif isinstance(mode,str):
+            if mode.lower() in ['still','update']:
+                self.mode = mode.lower()
+            else:
+                bo = True
+        else:
+            bo = True
+        if bo:
+            self.nice = False
+            self.info = 'Fatal: wrong defined: mode: {:} -> [still|update]'.format(mode)
+            return
+
+        self.bool_save_images = True if bool_save_images is True else False
+        self.bool_force_double_check = False if bool_force_double_check is False else True
 
         self.args = args
         self.kwargs = kwargs
 
-        self.overall_system = []
-        self.overall_sysbad = []
-        self.overall_prob_initial = []
-        self.overall_prob_final = []
-
-        self.overall_energy = []
-
-        self.force_double_check = False
-        if 'force_double_check' in kwargs:
-            if kwargs['force_double_check'] is True:
-               self.force_double_check = True
-
 
 
     def run(self):
-        print('Note: reading all data file inputs')
         systemlist,energylist = self.get_datalist(self.datafilelist)
         self.molnms = [len(i) for i in systemlist]
 
         sysndxlist = []
         if len(self.indexfilelist) != 0:
-            print('Note: reading all index file inputs')
             sysndxlist,tmp = self.get_datalist(self.indexfilelist)
         
         if len(systemlist) == 0:
-            print('Warning: no inputs')
+            self.nice = False
+            self.info = 'Fatal: no inputs after process'
             return
 
         # connections only need to be calculated once
         self.get_connections(system=systemlist[0][0])
+        if not self.nice: return
+
+        # to make cross filtration happen, sysndxlist should at the front
+        allsystem = []
+        allenergy = []
+        for i in sysndxlist:
+            allenergy.extend([None for j in range(len(i))])
+            allsystem.extend(i)
+
+        if self.mode == 'still':
+            allkeeps = list(range(len(allsystem)))
+            for i in systemlist: allsystem.extend(i)
+        else:
+            allkeeps = []
+        allenergy.extend([i for i in energylist])
+        myfn = Filtration(system=allsystem,keepndxlist=allkeeps,*self.args,**self.kwargs)
 
         # prompt for double check
-        bo = True
-        if self.force_double_check:
+        if self.bool_force_double_check:
             print('\nCheck: data files:')
             for cnt,fd in enumerate(self.datafilelist):
                 print('   => {:} -- molnms {:}'.format(fd,self.molnms[cnt]))
@@ -2124,61 +2068,84 @@ class BulkProcess:
                 for fd in self.indexfilelist:
                     print('   => {:}'.format(fd))
 
-            ltmp = self.kwargs['fragments']
-            if ltmp is not None and len(ltmp) != 0:
-                print('Check: molecule fragments:')
-                lt = []
-                for i in ltmp: lt.append([j+1 for j in i])
-                print('   => {:}'.format(lt))
+            print('Check: molecule fragments:')
+            lt = []
+            for i in self.kwargs['fragments']: lt.append([j+1 for j in i])
+            print('   => {:}'.format(lt))
 
-            ltmp = self.kwargs['bcon']
-            if ltmp is not None and len(ltmp) != 0:
-                print('Check: bond connection:')
-                lt = []
-                for i in ltmp: lt.append([j+1 for j in i])
-                print('   => {:}'.format(lt))
+            print('Check: bond connection:')
+            lt = []
+            for i in self.kwargs['bcon']: lt.append([j+1 for j in i])
+            print('   => {:}'.format(lt))
 
-            ltmp = self.kwargs['acon']
-            if ltmp is not None and len(ltmp) != 0:
-                print('Check: angle connection:')
-                lt = []
-                for i in ltmp: lt.append([j+1 for j in i])
-                print('   => {:}'.format(lt))
+            print('Check: angle connection:')
+            lt = []
+            for i in self.kwargs['acon']: lt.append([j+1 for j in i])
+            print('   => {:}'.format(lt))
             
             print('Check: total inputs < {:} >'.format(sum(self.molnms)))
             
-            stmp = 'ON' if self.kwargs['obonds'] else 'OFF'
+            stmp = 'ON' if myfn.obonds else 'OFF'
             print('Check: bonds probability is < {:} >'.format(stmp))
 
-            stmp = 'ON' if self.kwargs['oangles'] else 'OFF'
+            stmp = 'ON' if myfn.oangles else 'OFF'
             print('Check: angles probability is < {:} >'.format(stmp))
 
-            stmp = 'ON' if self.kwargs['opar'] else 'OFF'
+            stmp = 'ON' if myfn.opar else 'OFF'
             print('Check: par probability < {:} > (time consuming)'.format(stmp))
 
-            stmp = 'ON' if self.kwargs['oall'] else 'OFF'
+            stmp = 'ON' if myfn.oall else 'OFF'
             print('Check: all probability is < {:} >'.format(stmp))
 
-            stmp = 'ON' if self.kwargs['bool_save_images'] else 'OFF'
+            stmp = 'ON' if self.bool_save_images else 'OFF'
             print('Check: image outputs are < {:} >'.format(stmp))
 
             print('\nDo you want to continue? y/yes, else not. Input: ',end='')
-            tmp = input().lower()
-            if tmp not in ['y','yes']: bo = False
-            if not bo:
+            if input().lower() not in ['y','yes']:
                 print('Note: you decided to quit, nothing will be processed')
             print()
+            return
 
-        if bo:
-            self.filtration_on_self(systemlist,energylist)
-            self.filtration_on_cross(self.overall_system, sysndxlist)
-            if len(self.datafilelist) > 1: self.filtration_on_overall()
-            self.file_print()
-            self.save_data()
+        myfn.run()
+
+        # accumulation only on datafilelist
+        tot = 0
+        acclist = []
+        for i in sysndxlist: tot += len(i)
+        acclist.append(tot)
+        for i in systemlist:
+            tot += len(i)
+            acclist.append(tot)
+
+        rmlist = []
+        cnt = 0
+        ndx = 1
+        for t in myfn.reflist:
+            if t < acclist[0]: continue
+            if t < acclist[ndx]:
+                cnt += 1
+            else:
+                rmlist.append(cnt)
+                cnt = 0
+                ndx += 1
+        
+        self.ratiolist = [v/(acclist[i+1]-acclist[i]) for i,v in enumerate(rmlist)]
+
+        self.overall_energy = []
+        self.overall_system = []
+        for i,v in enumerate(allenergy):
+            if i not in myfn.reflist:
+                self.overall_energy.append(v)
+                self.overall_system.append(allsystem[i])
+
+        self.btol = myfn.btol
+        self.atol = myfn.atol
+        self.overall_prob_begin = myfn.prob_begin
+        self.overall_prob_final = myfn.prob_final
 
 
 
-    def file_print(self):
+    def save_file(self):
         print('\nNote: saving bulk process results ...')
         outmolnms = len(self.overall_system)
         print('Note: final molnms: < {:} >'.format(outmolnms))
@@ -2186,16 +2153,17 @@ class BulkProcess:
         print('Note: filtration ratio: < {:} >'.format(outratio))
 
         # get fname & ftype
-        FD = SaveFile([0],*self.args,**self.kwargs)
-        self.kwargs['fname'] = file_gen_new(FD.fname,fextend=FD.ftype)
+        fd = SaveFile([0],*self.args,**self.kwargs)
+        self.kwargs['fname'] = file_gen_new(fd.fname,fextend=fd.ftype)
 
         self.kwargs['energy'] = self.overall_energy
-        FD = SaveFile(self.overall_system,*self.args,**self.kwargs)
-        FD.run()
+        fd = SaveFile(self.overall_system,*self.args,**self.kwargs)
+        fd.run()
 
         if self.bool_save_images:
+            self.save_data()
             fimgs = {'bonds':[], 'angles':[]}
-            for cnt,initial in enumerate(self.overall_prob_initial):
+            for cnt,initial in enumerate(self.overall_prob_begin):
                 # save images for bonds
                 fout = {'par':[], 'all':None}
                 if len(initial['bonds']) != 0:
@@ -2228,7 +2196,7 @@ class BulkProcess:
             for fd in self.indexfilelist:
                 f.write('  => {:}\n'.format(fd))
             f.write('\nNote: result file:\n')
-            f.write('  => {:} -- molnms {:}\n'.format(FD.fname,outmolnms))
+            f.write('  => {:} -- molnms {:}\n'.format(fd.fname,outmolnms))
             f.write('\nNote: filtration ratio: {:}\n'.format(outratio))
 
             bcon = self.kwargs['bcon']
@@ -2265,7 +2233,7 @@ class BulkProcess:
                         for cnt,fd in enumerate(imgs['par']):
                             f.write('  => {:} --> {:}\n'.format(acon[cnt],fd))
 
-            # if number of data file inpust bigger than 1, overall filtration
+            # if number of data file inputs bigger than 1, overall filtration
             if len(self.datafilelist) > 1:
                 f.write('\n\nNote: overall filtration on all files\n')
                 imgs = fimgs['bonds'][-1]
@@ -2319,8 +2287,8 @@ class BulkProcess:
         fdata = file_gen_new('bulk-probability-data')
         print('Note: probability data is saved to < {:} >'.format(fdata))
         with open(fdata,'wt') as f:
-            f.write('@TOLERANCE   {:}   {:}\n\n\n'.format(*self.tolerance))
-            for cnt,initial in enumerate(self.overall_prob_initial):
+            f.write('@TOLERANCE   {:}   {:}\n\n\n'.format(self.btol, self.atol))
+            for cnt,initial in enumerate(self.overall_prob_begin):
                 if cnt < len(self.datafilelist):
                     finfo = self.datafilelist[cnt] 
                 else:
@@ -2447,15 +2415,16 @@ class BulkProcess:
 
 
     def get_datalist(self,filelist):
+        """return 4D list"""
         datalist = []
         energylist = []
         for f in filelist:
-            DATA = ReadFile(f)
-            DATA.run()
-            print('Note: for file < {:} >, number of inputs < {:} >'.format(f,len(DATA.system)))
-            if len(DATA.system) != 0:
-                datalist.append(DATA.system)
-                energylist.append(DATA.energy)
+            rf = ReadFile(f)
+            rf.run()
+            print('Note: for file < {:} >, number of inputs < {:} >'.format(f,len(rf.system)))
+            if len(rf.system) != 0:
+                datalist.append(rf.system)
+                energylist.append(rf.energy)
         return datalist,energylist
 
 
@@ -2463,142 +2432,158 @@ class BulkProcess:
     def get_connections(self,system):
         """
         Rule:
-            There are three type of inputs,
-
-            1) bcon         ->  bob True if has else False
-            2) acon         ->  boa True if has else False
-            3) fragments    ->  bog True if has else False
-
             now, we think as user input is always on the first priority,
-            and bcon & acon at the second, fragments in the last
-
-            thus fragments is an optional input, which only works;
-            when itself as the input and when bcon or acon not exist
-
-            a special case needs to be considered, when all three does not
-            exist, then the connections are calculated by the input system
-
-            after process, all three attributes will always be attached
+            and bcon & acon at the latter place
         """
-        bob = False
-        if 'bcon' in self.kwargs and self.kwargs['bcon'] is not None:
-            bob = True
-        boa = False
-        if 'acon' in self.kwargs and self.kwargs['acon'] is not None:
-            boa = True
-        bog = False
-        if 'fragments' in self.kwargs and self.kwargs['fragments'] is not None:
-            bog = True
-        if not bog:
-            # to simplify, make fragments always exist
-            BOND = BondPerception(system,3)
-            BOND.run()
-            self.kwargs['fragments'] = BOND.fragments
+        fn = AnglePerception(system)
+        if not fn.nice:
+            self.nice = False
+            self.info = fn.info
+            return
+        fn.run()
 
-        # only check user input fragments
-        if bog:
-            ux = max([max(i) for i in self.kwargs['fragments']])
-            if ux > len(system):
-                print('Warning: atom index is too big: < {:} >'.format(ux))
-                raise ValueError('wrongly defined')
-            self.kwargs['fragments'] = self.check_user_input_connections(
-                self.kwargs['fragments'],
-                self.kwargs['fragments'],
-            )
-
-        bcon,acon = func_calc_connection(self.kwargs['fragments'])
         # take care of special case, when input is None
-        if bob:
-            self.kwargs['bcon'] = self.check_user_input_connections(
-                self.kwargs['bcon'],
-                self.kwargs['fragments'],
-            )
-        else:
-            if 'bcon' in self.kwargs and self.kwargs['bcon'] is None:
-                self.kwargs['bcon'] = bcon
+        if 'bcon' in self.kwargs and self.kwargs['bcon'] is not None:
+            if isinstance(self.kwargs['bcon'],list):
+                self.kwargs['bcon'] = self.check_user_input_connections(
+                    self.kwargs['bcon'],
+                    fn.fragments
+                )
+            elif isinstance(self.kwargs['bcon'],str):
+                contmp = self.kwargs['bcon'].lower()
+                if 'no' in contmp or 'non' in contmp or 'none' in contmp:
+                    self.kwargs['bcon'] = []
+                elif hasattr(fn,contmp) and 'b' in contmp and 'con' in contmp:
+                    self.kwargs['bcon'] = getattr(fn,contmp)
+                else:
+                    self.kwargs['bcon'] = False
             else:
-                self.kwargs['bcon'] = []
-        if boa:
-            self.kwargs['acon'] = self.check_user_input_connections(
-                self.kwargs['acon'],
-                self.kwargs['fragments'],
-            )
+                self.kwargs['bcon'] = False
+            if self.kwargs['bcon'] is False: return
         else:
-            if 'acon' in self.kwargs and self.kwargs['acon'] is None:
-                self.kwargs['acon'] = acon
+            if fn.fragments is None or len(fn.fragments) == 1:
+                self.kwargs['bcon'] = fn.nconb
             else:
-                self.kwargs['acon'] = []
+                self.kwargs['bcon'] = fn.fnconb
+
+        if 'acon' in self.kwargs and self.kwargs['acon'] is not None:
+            if isinstance(self.kwargs['acon'],list):
+                self.kwargs['acon'] = self.check_user_input_connections(
+                    self.kwargs['acon'],
+                    fn.fragments
+                )
+            elif isinstance(self.kwargs['acon'],str):
+                contmp = self.kwargs['acon'].lower()
+                if 'no' in contmp or 'non' in contmp or 'none' in contmp:
+                    self.kwargs['acon'] = []
+                elif hasattr(fn,contmp) and 'a' in contmp and 'con' in contmp:
+                    self.kwargs['acon'] = getattr(fn,contmp)
+                else:
+                    self.kwargs['acon'] = False
+            else:
+                self.kwargs['acon'] = False
+            if self.kwargs['acon'] is False: return
+        else:
+            if fn.fragments is None or len(fn.fragments) == 1:
+                self.kwargs['acon'] = fn.ncona
+            else:
+                self.kwargs['acon'] = fn.fncona
+        
+        if 'fragments' in self.kwargs and self.kwargs['fragments'] is not None:
+            if 'userinputs' in self.kwargs and self.kwargs['userinputs'] is True:
+                fg = [[i-1] for i in self.kwargs['fragments']]
+                if min([min(i) for i in fg]) < 0:
+                    self.nice = False
+                    self.info = 'Fatal: wrong defined: atom index cannot less than 0'
+                    return
+            else:
+                fg = self.kwargs['fragments']
+            ux = max([max(i) for i in system])
+            fx = max([max(i) for i in fg])
+            if ux-1 < fx:
+                self.nice = False
+                self.info = 'Fatal: wrong defined: atom index exceeding: < {:} >'.format(ux)
+                return
+            self.kwargs['bcon'],self.kwargs['acon'] = self.func_calc_connection(fg)
+        else:
+            self.kwargs['fragments'] = fn.fragments
+        # always set final userinputs to False
+        self.kwargs['userinputs'] = False
 
 
 
-    def check_user_input_connections(self,ul,fl):
+    def check_user_input_connections(self,ul,fl,bo=None):
         for ndx in ul:
             if len(set(ndx)) != len(ndx):
-                print('Warning: repeats at: < {:} >'.format(ndx))
-                raise ValueError('wrongly defined')
-
+                self.nice = False
+                self.info = 'Fatal: wrong defined: repeats at: < {:} >'.format(ndx)
+                return False
         ux = max([max(i) for i in ul])
         fx = max([max(i) for i in fl])
         if ux-1 > fx:
-            print('Warning: atom index exceeding: < {:} >'.format(ux))
-            raise ValueError('wrongly defined')
+            self.nice = False
+            self.info = 'Fatal: wrong defined: atom index exceeding: < {:} >'.format(ux)
+            return
         # convert to python readable number, starts at 0
         ptmp = []
         for i in ul: ptmp.append([j-1 for j in i])
         for i in ptmp:
-            if min(i) < 0:
-                print('Warning: atom index starts at 1')
-                raise ValueError('wrongly defined')
+            if min(i)-1 < 0:
+                self.nice = False
+                self.info = 'Fatal: atom index should start at 1'
+                return False
         return ptmp
 
 
 
-    def filtration_on_cross(self,system,sysndxlist):
-        for cnt,sysndx in enumerate(sysndxlist):
-            print('Note: cross filtration on index file < {:} >'.format(self.indexfilelist[cnt]))
-            CFF = CrossFiltration(system, sysndx=sysndx, *self.args, **self.kwargs)
-            CFF.run()
+    def func_calc_connection(self,fragments):
+        """Bond & Angle connection based on fragments
 
-            self.overall_system = CFF.system
-            for mol in CFF.sysbad: self.overall_sysbad.append(mol)
+        Input:
+            fragments  :  2D  :  List[ List[int] ]
 
-            self.overall_energy = [e for i,e in enumerate(self.overall_energy) if i not in CFF.reflist]
+        Note:
+            Based on first 2 atoms, which is chosen by sequence,
+            find bond & angle connection with all atoms in other fragments
+
+        Return:
+            bcon  :  2D  :  List[ List[int,int], ...]
+            acon  :  2D  :  List[ List[int,int,int], ...]
+        """
+        if len(fragments) <= 1: return [],[]
+        bcon = []
+        b1 = fragments[0][0]
+        for ndx in fragments[1:]:
+            for v in ndx:
+                bcon.append([b1,v])
+        acon = []
+        for ndx,mol in enumerate(fragments):
+            if len(mol) >= 2:
+                break
+        if len(mol) >= 2:
+            at1 = mol[0]
+            at2 = mol[1]
+            for cnt,mol in enumerate(fragments):
+                if cnt != ndx:
+                    for v in mol:
+                        acon.append([at1,at2,v])
+        else:
+            if len(fragments) >= 3:
+                at1 = fragments[0][0]
+                at2 = fragments[1][0]
+                for v in fragments[2:]:
+                    acon.append([at1,at2,v[0]])
+        return bcon,acon
 
 
 
-    def filtration_on_self(self,datalist,energylist):
-        for cnt,system in enumerate(datalist):
-            print('Note: self filtration for file < {:} >'.format(self.datafilelist[cnt]))
-            FF = Filtration(system, *self.args, **self.kwargs)
-            FF.run()
-            self.tolerance = FF.tolerance
-
-            for mol in FF.system: self.overall_system.append(mol)
-            for mol in FF.sysbad: self.overall_sysbad.append(mol)
-
-            self.overall_prob_initial.append(FF.prob_initial)
-            self.overall_prob_final.append(FF.prob_final)
-
-            # update energy
-            energy = energylist[cnt]
-            for i,e in enumerate(energy):
-                if i not in FF.reflist:
-                    self.overall_energy.append(e)
+datafilelist = [
+    
+]
+indexfilelist = [
 
 
-
-    def filtration_on_overall(self):
-        print('Note: overall filtration on all filtered inputs')
-        FF = Filtration(self.overall_system, *self.args, **self.kwargs)
-        FF.run()
-
-        self.overall_system = FF.system
-        for mol in FF.sysbad: self.overall_sysbad.append(mol)
-
-        self.overall_prob_initial.append(FF.prob_initial)
-        self.overall_prob_final.append(FF.prob_final)
-
-        self.overall_energy = [e for i,e in enumerate(self.overall_energy) if i not in FF.reflist]
+]
 
 
 
@@ -2657,12 +2642,12 @@ def parsecmd():
         version=VERSION,
     )
     parser.add_argument(
-        '-f','--datafiles',
+        '-f','--datafilelist',
         help='Data files, separate by space or comma',
         nargs='+',
     )
     parser.add_argument(
-        '-d','--indexfiles',
+        '-d','--indexfilelist',
         help='Index files, as the filtration reference',
         nargs='+',
     )
@@ -2776,15 +2761,15 @@ def parsecmd():
         'opar'                  :   None,
         'oall'                  :   True,
     }
-    if args.datafiles is None:
-        print('Warning: -f/--datafiles is missing')
+    if args.datafilelist is None:
+        print('Warning: -f/--datafilelist is missing')
         exit()
 
-    stmp = parse_remove_chars(' '.join(args.datafiles)).replace(',',' ')
+    stmp = parse_remove_chars(' '.join(args.datafilelist)).replace(',',' ')
     datafilelist = stmp.split()
 
-    if args.indexfiles is not None:
-        stmp = parse_remove_chars(' '.join(args.indexfiles)).replace(',',' ')
+    if args.indexfilelist is not None:
+        stmp = parse_remove_chars(' '.join(args.indexfilelist)).replace(',',' ')
         fdict['indexfilelist'] = stmp.split()
 
     if args.bcon is not None:
