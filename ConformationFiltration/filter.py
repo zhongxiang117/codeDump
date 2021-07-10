@@ -55,6 +55,8 @@ FEATURES = [
     'version 3.3.5  : class perceptions are done',
     'version 3.3.6  : refine Filtration',
     'version 3.3.7  : refine BulkProcess',
+    'version 3.3.8  : refine parsecmd',
+    'version 3.40 : RELEASE',
 ]
 
 
@@ -325,12 +327,12 @@ class ReadFile:
                 self.ext = file[ndx+1:].lower()
         else:
             self.ext = ext
-        
+
         if self.ext not in ['txt','xsf','xyz']:
             self.nice = False
             self.info = 'Fatal: file format not support: {:}'.format(ext)
             return
-        
+
         self.debug = True if debug is True else False
 
 
@@ -350,14 +352,11 @@ class ReadFile:
         self.energy = []
 
         prolist,enelist,errlist = getattr(self,'read_'+self.ext)()
-        if len(prolist) <= 1: return
+        if len(prolist) <= 0: return
 
         if self.debug:
             for i in errlist:
                 print('Warning: ignoring: {:}: {:}'.format(i[0],i[1]))
-        
-        self.system.append(prolist[0])
-        self.energy.append(enelist[0])
 
         # format: 2D str: [ [sign, number, name], ... ]
         atominfo = [[i[0], str(i[1]), i[4]] for i in FAI.atominfo]
@@ -376,7 +375,7 @@ class ReadFile:
 
         nats = len(ndxlist)
         errlist = []
-        for n,mol in enumerate(prolist[1:]):
+        for n,mol in enumerate(prolist):
             if len(mol) != nats:
                 info = 'Warning: ignoring: error: number of atoms'
                 errlist.append([info,mol])
@@ -403,13 +402,12 @@ class ReadFile:
                     if not bo:
                         break
             if bo:
-                # be careful with n starts
-                self.energy.append(enelist[n+1])
+                self.energy.append(enelist[n])
                 self.system.append(mol)
             else:
                 info = 'Warning: ignoring: error: not cooresponded'
                 errlist.append([info,mol])
-    
+
         if self.debug:
             for i in errlist:
                 print(i[0])
@@ -439,7 +437,7 @@ class ReadFile:
                 i = j
             else:
                 i += 1
-        
+
         prolist = []
         enelist = []
         errlist = []
@@ -647,7 +645,7 @@ class SaveFile:
 
         ftype (str): Output file type: txt | xsf | xyz
         fname (str): file to be saved, warning, overwritten may happen
-    
+
     Note:
         1) number of atoms in system will not be crossly checked, which means
         for: system[ mol(8),  mol(5),  mol(20), ...],
@@ -892,7 +890,7 @@ class BondPerception:
             self.nice = False
             self.info = 'Fatal: too less'
             return
-        
+
         # get real atomtype list
         # format: 2D str: [ [sign, number, name], ... ]
         atominfo = [[i[0], str(i[1]), i[4]] for i in FAI.atominfo]
@@ -930,7 +928,7 @@ class BondPerception:
             fc, fbc, fnbc = self.calc_bcons(self.system,self.atradius,reflist=ref)
             self.fconb.extend(fc)
             self.fnconb.extend(fnbc)
-        
+
         self.cfnconb = []
         for i,ref in enumerate(self.fragments):
             j = i + 1
@@ -1044,6 +1042,8 @@ class AnglePerception(BondPerception):
         if len(self.system) < 3: return
 
         # take care results from BondPerception
+        mybcon = self.bcon
+        myfragments = self.fragments
         if self.userinputs:
             mybcon = [[i-1 for i in j] for j in self.bcon]
             myfragments = [[i-1 for i in j] for j in self.fragments]
@@ -1256,7 +1256,7 @@ def test_class_Perception():
                 print('Fatal: repeats on adjlist')
                 return False
             if len(totlist) < len(sublist) + len(adjlist): return False
-        
+
         # check inner-length, do not modify the reference
         sublist = [i for i in sublist]
         sublist.extend(adjlist)
@@ -1282,13 +1282,13 @@ def test_class_Perception():
                     break
             if bo:
                 chktlist[i] = True
-        
+
         if False in chkslist:
             return False
         if None in chktlist:
             return None
         return True
-    
+
 
     def checkobj(obj,info='mol'):
         errinfo = 'Error: {:}:'.format(info)
@@ -1420,7 +1420,7 @@ def test_class_Perception():
 
 
 class Filtration:
-    """Filter molecules based on Bond-Connection
+    """Filter molecules based on bonds & angles connections
 
     Inputs:
         system : 3D List[ List[[atomtype, x,y,z], ...], ...]
@@ -1432,10 +1432,10 @@ class Filtration:
         btol : tolerance on bond, Angstrom
         atol : tolerance on angle, degree
 
-        obonds  :  Boolean  :  whether calculate bonds  :  default False
-        oangles :  Boolean  :  whether calculate angles :  default False
-        =>  opar  :  Boolean  :  whether calculate prob_par  :  default False
-        =>  oall  :  Boolean  :  whether calculate prob_all  :  default True
+        obpar  :  Boolean  :  whether calculate bonds prob_bpar  :  default False
+        oball  :  Boolean  :  whether calculate bonds prob_ball  :  default True
+        oapar  :  Boolean  :  whether calculate angles prob_apar  :  default False
+        oaall  :  Boolean  :  whether calculate angles prob_aall  :  default True
 
 
     Attributes:
@@ -1443,15 +1443,11 @@ class Filtration:
         sysbad  :  filtered out molecules
 
         prob_begin : begin probability  :   dict
-
             keys:
-                bonds   :   List
-                    prob_par    : 3D : List[ [List[int],float] ]
-                    prob_all    : 2D : List[ List[int],  float ]
-
-                angles  :   List
-                    prob_par    : 3D : List[ [List[int],float] ]
-                    prob_all    : 2D : List[ List[int],  float ]
+                bpar    : 3D : List[ [List[int],float] ]
+                ball    : 2D : List[ List[int],  float ]
+                apar    : 3D : List[ [List[int],float] ]
+                aall    : 2D : List[ List[int],  float ]
 
         prob_final :  same format as prob_begin
 
@@ -1468,7 +1464,7 @@ class Filtration:
     """
     def __init__(self,system=None,keepndxlist=None,userinputs=None,
                 bcon=None,acon=None,btol=None,atol=None,
-                obonds=None,oangles=None,opar=None,oall=None,
+                obpar=None,oball=None,oapar=None,oaall=None,
                 *args,**kwargs):
         self.system = system
         self.keepndxlist = keepndxlist
@@ -1479,23 +1475,17 @@ class Filtration:
         self.btol = 0.1 if btol is None else btol   # Angstrom
         self.atol = 0.1 if atol is None else atol   # degree
 
-        self.obonds = True if obonds is True else False
-        self.oangles = True if oangles is True else False
-        self.opar = True if opar is True else False
-        self.oall = True if oall is True else False
-        if not (self.opar or self.oall):
-            self.obonds = False
-            self.oangles = False
-
-        if len(self.bcon) == 0: self.obonds = False
-        if len(self.acon) == 0: self.oangles = False
+        self.obpar = True if obpar is True else False
+        self.oball = False if oball is False else True
+        self.oapar = True if oapar is True else False
+        self.oaall = False if oaall is False else True
 
         if self.userinputs:
             self.userinputs = False
             self.bcon = [[i-1 for i in j] for j in self.bcon]
             self.acon = [[i-1 for i in j] for j in self.acon]
-        self.prob_begin = {'angles':[], 'bonds':[]}
-        self.prob_final = {'angles':[], 'bonds':[]}
+        self.prob_begin = {'bpar':[], 'ball':[], 'apar':[], 'aall':[]}
+        self.prob_final = {'bpar':[], 'ball':[], 'apar':[], 'aall':[]}
 
 
 
@@ -1512,14 +1502,12 @@ class Filtration:
 
         if self.keepndxlist is None: self.keepndxlist = []
 
-        if self.obonds or self.oangles:
-            print('Note: calculating begin probability ...')
-        if self.obonds:
-            print('  ==> bonds ...')
-            self.prob_begin['bonds'] = self.calc_probs(bondlist,binc,self.opar,self.oall)
-        if self.oangles:
-            print('  ==> angles ...')
-            self.prob_begin['angles'] = self.calc_probs(anglelist,ainc,self.opar,self.oall)
+        if self.obpar or self.oball:
+            print('Note: calculating begin bonds probability ...')
+            self.prob_begin['bpar'], self.prob_begin['ball'] = self.calc_probs(bondlist,binc,self.obpar,self.oball)
+        if self.oapar or self.oaall:
+            print('Note: calculating begin angles probability ...')
+            self.prob_begin['apar'], self.prob_begin['aall'] = self.calc_probs(anglelist,ainc,self.oapar,self.oaall)
 
         self.reflist = self.calc_filterlists(bondlist,anglelist,binc,ainc,self.keepndxlist)
 
@@ -1539,14 +1527,12 @@ class Filtration:
         # alias
         self.system = tmpsys
 
-        if self.obonds or self.oangles:
-            print('Note: calculating final probability ...')
-        if self.obonds:
-            print('  ==> bonds ...')
-            self.prob_final['bonds'] = self.calc_probs(bondlist,binc,self.opar,self.oall)
-        if self.oangles:
-            print('  ==> angles ...')
-            self.prob_final['angles'] = self.calc_probs(anglelist,ainc,self.opar,self.oall)
+        if self.obpar or self.oball:
+            print('Note: calculating final bonds probability ...')
+            self.prob_final['bpar'], self.prob_final['ball'] = self.calc_probs(self.bondlist,binc,self.obpar,self.oball)
+        if self.oapar or self.oaall:
+            print('Note: calculating final angles probability ...')
+            self.prob_final['apar'], self.prob_final['aall'] = self.calc_probs(self.anglelist,ainc,self.oapar,self.oaall)
 
 
 
@@ -1770,7 +1756,7 @@ class Filtration:
 
 def test_class_Filtration():
     """
-    Be aware of a temporary file is used
+    Be aware of the testing data file is used
     """
     def checkequal(alist,blist,tol=None):
         if tol is None: tol = 10**(-5)
@@ -1805,10 +1791,6 @@ def test_class_Filtration():
         'userinputs':   False,
         'bcon'      :   bcon,
         'acon'      :   acon,
-        'obonds'    :   False,
-        'oangles'   :   False,
-        'opar'      :   False,
-        'oall'      :   False,
     }
     fn = Filtration(**fd)
     fn.run()
@@ -1901,8 +1883,8 @@ def plot_filtration_save_image(ini,fin=None,dt=None,fname=None,key=None):
     if (not boi) and (not bof): return False
 
     # check data size
-    if len(ini[0]) <= 5: boi = False
-    if len(fin[0]) <= 5: bof = False
+    if len(ini[0]) <= 3: boi = False
+    if len(fin[0]) <= 3: bof = False
     if (not boi) and (not bof): return False
 
     if boi:
@@ -1963,7 +1945,6 @@ class BulkProcess:
     """bulk process for datafilelist based on indexfilelist
 
     Inputs:
-        mode (str)  :   
         bcon (str|list): conb, bcon, ...
         acon (str|list): cona, acon, ...
 
@@ -1977,8 +1958,8 @@ class BulkProcess:
     Note:
         fragments is input as human-readable number, starting at 1
     """
-    def __init__(self,datafilelist,indexfilelist=None,mode=None,
-                bool_save_images=None,bool_force_double_check=None,
+    def __init__(self,datafilelist=None,indexfilelist=None,mode=None,
+                bool_force_double_check=None,
                 *args,**kwargs):
         self.nice = True
         self.info = ''
@@ -1988,7 +1969,7 @@ class BulkProcess:
                 self.datafilelist.append(f)
             else:
                 print('Warning: not a data file < {:} >, ignoring'.format(f))
-        
+
         if len(self.datafilelist) == 0:
             self.nice = False
             self.info = 'Fatal: no inputs'
@@ -2002,24 +1983,7 @@ class BulkProcess:
                 else:
                     print('Warning: not an index file < {:} >, ignoring'.format(f))
 
-        bo = False
-        if mode is None:
-            self.mode = 'update'
-        elif isinstance(mode,str):
-            if mode.lower() in ['still','update']:
-                self.mode = mode.lower()
-            else:
-                bo = True
-        else:
-            bo = True
-        if bo:
-            self.nice = False
-            self.info = 'Fatal: wrong defined: mode: {:} -> [still|update]'.format(mode)
-            return
-
-        self.bool_save_images = True if bool_save_images is True else False
         self.bool_force_double_check = False if bool_force_double_check is False else True
-
         self.args = args
         self.kwargs = kwargs
 
@@ -2032,30 +1996,26 @@ class BulkProcess:
         sysndxlist = []
         if len(self.indexfilelist) != 0:
             sysndxlist,tmp = self.get_datalist(self.indexfilelist)
-        
+
         if len(systemlist) == 0:
             self.nice = False
             self.info = 'Fatal: no inputs after process'
             return
 
         # connections only need to be calculated once
-        self.get_connections(system=systemlist[0][0])
+        self.get_connections(systemlist[0][0])
         if not self.nice: return
 
-        # to make cross filtration happen, sysndxlist should at the front
+        # to make cross filtration happen, sysndxlist should at the first
         allsystem = []
         allenergy = []
         for i in sysndxlist:
             allenergy.extend([None for j in range(len(i))])
             allsystem.extend(i)
-
-        if self.mode == 'still':
-            allkeeps = list(range(len(allsystem)))
-            for i in systemlist: allsystem.extend(i)
-        else:
-            allkeeps = []
-        allenergy.extend([i for i in energylist])
-        myfn = Filtration(system=allsystem,keepndxlist=allkeeps,*self.args,**self.kwargs)
+        allkeeps = list(range(len(allsystem)))
+        for i in systemlist: allsystem.extend(i)
+        for i in energylist: allenergy.extend([j for j in i])
+        mf = Filtration(system=allsystem,keepndxlist=allkeeps,*self.args,**self.kwargs)
 
         # prompt for double check
         if self.bool_force_double_check:
@@ -2064,9 +2024,9 @@ class BulkProcess:
                 print('   => {:} -- molnms {:}'.format(fd,self.molnms[cnt]))
 
             if len(self.indexfilelist) != 0:
-                print('Check: index filesd:')
-                for fd in self.indexfilelist:
-                    print('   => {:}'.format(fd))
+                print('Check: index files:')
+                for cnt,fd in enumerate(self.indexfilelist):
+                    print('   => {:} -- molnms {:}'.format(fd,len(sysndxlist[cnt])))
 
             print('Check: molecule fragments:')
             lt = []
@@ -2082,31 +2042,34 @@ class BulkProcess:
             lt = []
             for i in self.kwargs['acon']: lt.append([j+1 for j in i])
             print('   => {:}'.format(lt))
-            
+
             print('Check: total inputs < {:} >'.format(sum(self.molnms)))
-            
-            stmp = 'ON' if myfn.obonds else 'OFF'
-            print('Check: bonds probability is < {:} >'.format(stmp))
 
-            stmp = 'ON' if myfn.oangles else 'OFF'
-            print('Check: angles probability is < {:} >'.format(stmp))
+            stmp = 'ON' if mf.oball else 'OFF'
+            print('Check: (image) bonds all probability < {:} >'.format(stmp))
+            stmp = 'ON' if mf.obpar else 'OFF'
+            print('Check: (images) bonds par probability < {:} > (time consuming)'.format(stmp))
+            stmp = 'ON' if mf.oaall else 'OFF'
+            print('Check: (image) angles all probability < {:} >'.format(stmp))
+            stmp = 'ON' if mf.oapar else 'OFF'
+            print('Check: (images) angles par probability < {:} > (time consuming)'.format(stmp))
+            print('Check: bonds tolerance < {:} Angstrom >'.format(mf.btol))
+            print('Check: angles tolerance < {:} degree >'.format(mf.atol))
 
-            stmp = 'ON' if myfn.opar else 'OFF'
-            print('Check: par probability < {:} > (time consuming)'.format(stmp))
-
-            stmp = 'ON' if myfn.oall else 'OFF'
-            print('Check: all probability is < {:} >'.format(stmp))
-
-            stmp = 'ON' if self.bool_save_images else 'OFF'
-            print('Check: image outputs are < {:} >'.format(stmp))
+            imtot = 0
+            if mf.oball: imtot += 1
+            if mf.oaall: imtot += 1
+            if mf.obpar: imtot += len(mf.bcon)
+            if mf.oapar: imtot += len(mf.acon)
+            print('Check: number of images will be generated: < {:} >'.format(imtot))
 
             print('\nDo you want to continue? y/yes, else not. Input: ',end='')
             if input().lower() not in ['y','yes']:
                 print('Note: you decided to quit, nothing will be processed')
+                return
             print()
-            return
 
-        myfn.run()
+        mf.run()
 
         # accumulation only on datafilelist
         tot = 0
@@ -2117,77 +2080,116 @@ class BulkProcess:
             tot += len(i)
             acclist.append(tot)
 
-        rmlist = []
-        cnt = 0
+        # test
+        #mf.reflist = [i for i in acclist[:-1]]
+        # expect: rmlist = [1 for i in range(len(acclist)-1)]
+        # mf.reflist is the sorted list
+        self.rmnmlist = [0 for i in range(len(acclist)-1)]
         ndx = 1
-        for t in myfn.reflist:
-            if t < acclist[0]: continue
-            if t < acclist[ndx]:
-                cnt += 1
-            else:
-                rmlist.append(cnt)
-                cnt = 0
+        i = 0
+        while ndx < len(acclist):
+            cnt = 0
+            while i < len(mf.reflist):
+                if mf.reflist[i] < acclist[ndx]:
+                    cnt += 1
+                    i += 1
+                else:
+                    break
+            if cnt == 0:
                 ndx += 1
-        
-        self.ratiolist = [v/(acclist[i+1]-acclist[i]) for i,v in enumerate(rmlist)]
+            else:
+                self.rmnmlist[ndx-1] = cnt
 
         self.overall_energy = []
         self.overall_system = []
+        totreflist =  list(range(len(allkeeps)))
+        totreflist.extend(mf.reflist)
         for i,v in enumerate(allenergy):
-            if i not in myfn.reflist:
+            if i not in totreflist:
                 self.overall_energy.append(v)
                 self.overall_system.append(allsystem[i])
 
-        self.btol = myfn.btol
-        self.atol = myfn.atol
-        self.overall_prob_begin = myfn.prob_begin
-        self.overall_prob_final = myfn.prob_final
+        self.bcon = mf.bcon
+        self.acon = mf.acon
+        self.btol = mf.btol
+        self.atol = mf.atol
+        self.boim = True if mf.oball or mf.obpar or mf.oaall or mf.oapar else False
+        self.overall_prob_begin = mf.prob_begin
+        self.overall_prob_final = mf.prob_final
+
+        self.save_files()
 
 
 
-    def save_file(self):
+    def save_files(self):
         print('\nNote: saving bulk process results ...')
-        outmolnms = len(self.overall_system)
-        print('Note: final molnms: < {:} >'.format(outmolnms))
-        outratio = round(outmolnms/sum(self.molnms),2)
+        tot = len(self.overall_system)
+        print('Note: final molnms: < {:} >'.format(tot))
+        outratio = round(tot/sum(self.molnms),2)
         print('Note: filtration ratio: < {:} >'.format(outratio))
 
-        # get fname & ftype
-        fd = SaveFile([0],*self.args,**self.kwargs)
+        # files
+        fd = SaveFile(self.overall_system,*self.args,**self.kwargs)
         self.kwargs['fname'] = file_gen_new(fd.fname,fextend=fd.ftype)
-
         self.kwargs['energy'] = self.overall_energy
         fd = SaveFile(self.overall_system,*self.args,**self.kwargs)
         fd.run()
+        outfile = fd.fname
+        print('Note: file is saved to < {:} >'.format(outfile))
 
-        if self.bool_save_images:
-            self.save_data()
-            fimgs = {'bonds':[], 'angles':[]}
-            for cnt,initial in enumerate(self.overall_prob_begin):
-                # save images for bonds
-                fout = {'par':[], 'all':None}
-                if len(initial['bonds']) != 0:
-                    fg = 'bulk-image-bonds'
-                    key = 'bonds'
-                    ini = initial['bonds']
-                    fin = self.overall_prob_final[cnt]['bonds']
-                    dt = self.tolerance[0]
-                    fout = self.save_images(ini,fin,fg,dt=dt,key=key)
-                fimgs['bonds'].append(fout)
+        filedict = {}
 
-                # save images for angles
-                fout = {'par':[], 'all':None}
-                if len(initial['angles']) != 0:
-                    fg = 'bulk-image-angles'
-                    key = 'angles'
-                    ini = initial['angles']
-                    fin = self.overall_prob_final[cnt]['angles']
-                    dt = self.tolerance[1]
-                    fout = self.save_images(ini,fin,fg,dt=dt,key=key)
-                fimgs['angles'].append(fout)
-        
+        # images
+        if self.boim:
+            filedict['probability data file'] = self.save_probdata()
+
+            if len(self.overall_prob_begin['ball']) != 0:
+                fgp = file_gen_new('bonds-all',fextend='png',foriginal=False)
+                fbo = plot_filtration_save_image(
+                    self.overall_prob_begin['ball'],
+                    self.overall_prob_final['ball'],
+                    dt=self.btol,
+                    fname=fgp,
+                    key='bonds',
+                )
+                if fbo: filedict['image all bonds filtration file'] = fgp
+
+            if len(self.overall_prob_begin['aall']) != 0:
+                fgp = file_gen_new('angles-all',fextend='png',foriginal=False)
+                fbo = plot_filtration_save_image(
+                    self.overall_prob_begin['aall'],
+                    self.overall_prob_final['aall'],
+                    dt=self.atol,
+                    fname=fgp,
+                    key='angles',
+                )
+                if fbo: filedict['image all angles filtration file'] = fgp
+
+
+            for i,t in enumerate(self.overall_prob_begin['bpar']):
+                fgp = file_gen_new('bonds-par',fextend='png',foriginal=False)
+                fbo = plot_filtration_save_image(
+                    t,
+                    self.overall_prob_final['bpar'][i],
+                    dt=self.btol,
+                    fname=fgp,
+                    key='bonds',
+                )
+                if fbo: filedict['image bonds par filtration file'] = fgp
+
+            for i,t in enumerate(self.overall_prob_begin['apar']):
+                fgp = file_gen_new('angles-par',fextend='png',foriginal=False)
+                fbo = plot_filtration_save_image(
+                    t,
+                    self.overall_prob_final['apar'][i],
+                    dt=self.btol,
+                    fname=fgp,
+                    key='angles',
+                )
+                if fbo: filedict['image angles par filtration file'] = fgp
+
         ftot = file_gen_new('bulk-process-info')
-        print('\nNote: check summary file for more info: < {:} >'.format(ftot))
+        print('Note: please check summary file for more info: < {:} >'.format(ftot))
         with open(ftot,'wt') as f:
             f.write('Note: bulk process for input files:\n')
             for cnt,fd in enumerate(self.datafilelist):
@@ -2196,221 +2198,81 @@ class BulkProcess:
             for fd in self.indexfilelist:
                 f.write('  => {:}\n'.format(fd))
             f.write('\nNote: result file:\n')
-            f.write('  => {:} -- molnms {:}\n'.format(fd.fname,outmolnms))
+            f.write('  => {:} -- molnms {:}\n'.format(outfile,len(self.overall_system)))
             f.write('\nNote: filtration ratio: {:}\n'.format(outratio))
 
-            bcon = self.kwargs['bcon']
-            acon = self.kwargs['acon']
             f.write('\nNote: bonds connections:\n')
-            f.write('  => {:}\n'.format(bcon))
-            f.write('\nNote: angles connections:\n')
-            f.write('  => {:}\n'.format(acon))
+            tot = ''
+            out = '  => '
+            for tmp in self.bcon:
+                tmp = [i+1 for i in tmp]
+                out += '{:}, '.format(tmp)
+                if len(out) >= 80:
+                    tot += out.rstrip() + '\n'
+                    out = '  => '
+            if out != '  => ': tot += out.rstrip() + '\n'
+            tot += '\n'
+            f.write(tot)
 
-            f.write('\nNote: tolerance:\n')
-            f.write('  => {:}\n'.format(self.tolerance))
+            f.write('Note: angles connections:\n')
+            tot = ''
+            out = '  => '
+            for tmp in self.acon:
+                tmp = [i+1 for i in tmp]
+                out += '{:}, '.format(tmp)
+                if len(out) >= 80:
+                    tot += out.rstrip() + '\n'
+                    out = '  => '
+            if out != '  => ': tot += out.rstrip() + '\n'
+            tot += '\n'
+            f.write(tot)
 
-            if not self.bool_save_images: return
+            f.write('Note: btol   : {:} Angstrom\n'.format(self.btol))
+            f.write('Note: atol   : {:} degree\n'.format(self.atol))
 
-            for ndx,df in enumerate(self.datafilelist):
-                f.write('\n\nNote: images for file: < {:} >\n'.format(df))
-                imgs = fimgs['bonds'][ndx]
-                if len(imgs) != 0:
-                    if imgs['all'] is not None:
-                        f.write('Note: bonds images for all in pot of stew:\n')
-                        f.write('  => all --> {:}\n'.format(imgs['all']))
-                    if len(imgs['par']) != 0:
-                        f.write('Note: bonds images for each par entry:\n')
-                        for cnt,fd in enumerate(imgs['par']):
-                            f.write('  => {:} --> {:}\n'.format(bcon[cnt],fd))
-
-                imgs = fimgs['angles'][ndx]
-                if len(imgs) != 0:
-                    if imgs['all'] is not None:
-                        f.write('Note: angles images for all in pot of stew:\n')
-                        f.write('  => all --> {:}\n'.format(imgs['all']))
-                    if len(imgs['par']) != 0:
-                        f.write('Note: angles images for each par entry:\n')
-                        for cnt,fd in enumerate(imgs['par']):
-                            f.write('  => {:} --> {:}\n'.format(acon[cnt],fd))
-
-            # if number of data file inputs bigger than 1, overall filtration
-            if len(self.datafilelist) > 1:
-                f.write('\n\nNote: overall filtration on all files\n')
-                imgs = fimgs['bonds'][-1]
-                if len(imgs) != 0:
-                    if imgs['all'] is not None:
-                        f.write('Note: bonds images for overall in pot of stew:\n')
-                        f.write('  => overall --> {:}\n'.format(imgs['all']))
-                    if len(imgs['par']) != 0:
-                        f.write('Note: bonds images for each par entry:\n')
-                        for cnt,fd in enumerate(imgs['par']):
-                            f.write('  => {:} --> {:}\n'.format(bcon[cnt],fd))
-
-                imgs = fimgs['angles'][-1]
-                if len(imgs) != 0:
-                    if imgs['all'] is not None:
-                        f.write('Note: angles images for overall in pot of stew:\n')
-                        f.write('  => overall --> {:}\n'.format(imgs['all']))
-                    if len(imgs['par']) != 0:
-                        f.write('Note: angles images for each par entry:\n')
-                        for cnt,fd in enumerate(imgs['par']):
-                            f.write('  => {:} --> {:}\n'.format(acon[cnt],fd))
+            for k,v in filedict.items():
+                f.write('Note: {:<40}:   {:}\n'.format(k,v))
 
 
 
-    def save_data(self):
-        def gen_outputs(ini,fin,ctype,key):
-            out = ''
-            itxt = '@{:}-INI-{:}'.format(ctype.upper(),key.upper())
-            ftxt = '@{:}-FIN-{:}'.format(ctype.upper(),key.upper())
-            for m,p in enumerate(ini):
-                if len(p) == 0:
-                    out += '{:}-X-{:}   NONE\n'.format(itxt,m+1)
-                    out += '{:}-Y-{:}   NONE\n'.format(itxt,m+1)
-                else:
-                    out += '{:}-X-{:}   {:}\n'.format(itxt,m+1,p[1])
-                    out += '{:}-Y-{:}   '.format(itxt,m+1)
-                    for s in p[0]: out += '{:}   '.format(s)
-                    out += '\n'
-                u = fin[m]
-                if len(u) == 0:
-                    out += '{:}-X-{:}   NONE\n'.format(ftxt,m+1)
-                    out += '{:}-Y-{:}   NONE\n'.format(ftxt,m+1)
-                else:
-                    out += '{:}-X-{:}   {:}\n'.format(ftxt,m+1,u[1])
-                    out += '{:}-Y-{:}   '.format(ftxt,m+1)
-                    for s in u[0]: out += '{:}   '.format(s)
-                    out += '\n'
-            return out
+    def save_probdata(self):
+        def gen_outputs(prob,bcon,acon,key):
+            def fout(pdata):
+                txt = ''
+                out = '{:}\n'.format(pdata[1])
+                for p in pdata[0]:
+                    txt += '{:}  '.format(p)
+                    if len(txt) >= 80:
+                        out += txt.strip() + '\n'
+                        txt = ''
+                out += txt.strip() + '\n\n'
+                return out
 
+            k = key.upper()
+            contents = f'@{k}  BALL\n' + fout(prob['ball']) if len(prob['ball']) != 0 else ''
+            if len(prob['bpar']) != 0:
+                for n,data in enumerate(prob['bpar']):
+                    contents += '@{:}  BPAR   {:}  {:}\n'.format(k,*bcon[n])
+                    contents += fout(data)
+            if len(prob['aall']) != 0: contents += f'@{k}  AALL\n' + fout(prob['aall'])
+            if len(prob['apar']) != 0:
+                for n,data in enumerate(prob['apar']):
+                    contents += '@{:}  APAR   {:}  {:}  {:}\n'.format(k,*acon[n])
+                    contents += fout(data)
+            return contents
 
         fdata = file_gen_new('bulk-probability-data')
         print('Note: probability data is saved to < {:} >'.format(fdata))
         with open(fdata,'wt') as f:
-            f.write('@TOLERANCE   {:}   {:}\n\n\n'.format(self.btol, self.atol))
-            for cnt,initial in enumerate(self.overall_prob_begin):
-                if cnt < len(self.datafilelist):
-                    finfo = self.datafilelist[cnt] 
-                else:
-                    finfo = 'OVERALL'
-                f.write('@FILE {:}\n\n'.format(finfo))
-
-                # for bonds
-                if len(initial['bonds']) == 0:
-                    f.write('@BONDS   NONE\n\n')
-                elif len(initial['bonds']) != 0:
-                    ini = initial['bonds']
-                    fin = self.overall_prob_final[cnt]['bonds']
-
-                    ipar = ini[0]
-                    fpar = fin[0]
-                    if len(ipar) == 0:
-                        f.write('@BONDS-PAR   NONE\n')
-                    else:
-                        out = gen_outputs(ipar,fpar,'BONDS','PAR')
-                        f.write(out)
-                    f.write('\n')
-
-                    new = ''
-                    iall = ini[1]
-                    if len(iall) == 0:
-                        f.write('@BONDS-INI-ALL-X   NONE\n')
-                        f.write('@BONDS-INI-ALL-Y   NONE\n')
-                    else:
-                        new += '@BONDS-INI-ALL-X   {:}\n'.format(iall[1])
-                        new += '@BONDS-INI-ALL-Y   '
-                        for s in iall[0]: new += '{:}   '.format(s)
-                        new += '\n'
-                    fall = fin[1]
-                    if len(fall) == 0:
-                        f.write('@BONDS-FIN-ALL-X   NONE\n')
-                        f.write('@BONDS-FIN-ALL-Y   NONE\n')
-                    else:
-                        new += '@BONDS-FIN-ALL-X   {:}\n'.format(fall[1])
-                        new += '@BONDS-FIN-ALL-Y   '
-                        for s in fall[0]: new += '{:}   '.format(s)
-                        new += '\n'
-                    f.write(new)
-                    f.write('\n')
-                
-                # for angles
-                if len(initial['angles']) == 0:
-                    f.write('@ANGLES   NONE\n\n')
-                elif len(initial['angles']) != 0:
-                    ini = initial['angles']
-                    fin = self.overall_prob_final[cnt]['angles']
-
-                    ipar = ini[0]
-                    fpar = fin[0]
-                    if len(ipar) == 0:
-                        f.write('@ANGLES-PAR   NONE\n')
-                    else:
-                        out = gen_outputs(ipar,fpar,'ANGLES','PAR')
-                        f.write(out)
-                    f.write('\n')
-
-                    new = ''
-                    iall = ini[1]
-                    if len(iall) == 0:
-                        f.write('@ANGLES-INI-ALL-X   NONE\n')
-                        f.write('@ANGLES-INI-ALL-Y   NONE\n')
-                    else:
-                        new += '@ANGLES-INI-ALL-X   {:}\n'.format(iall[1])
-                        new += '@ANGLES-INI-ALL-Y   '
-                        for s in iall[0]: new += '{:}   '.format(s)
-                        new += '\n'
-                    fall = fin[1]
-                    if len(fall) == 0:
-                        f.write('@ANGLES-FIN-ALL-X   NONE\n')
-                        f.write('@ANGLES-FIN-ALL-Y   NONE\n')
-                    else:
-                        new += '@ANGLES-FIN-ALL-X   {:}\n'.format(fall[1])
-                        new += '@ANGLES-FIN-ALL-Y   '
-                        for s in fall[0]: new += '{:}   '.format(s)
-                        new += '\n'
-                    f.write(new)
-                    f.write('\n')
-                f.write('\n\n')
-
-
-
-    def save_images(self,ini,fin,fg,dt=None,key=None):
-        """separately save images
-
-        Return:
-            fout:   generated files name dict
-
-            key :   None means file not exist
-                par :   1D  :   List[str]
-                all :   str
-        """
-        fout = {'par':[], 'all':None}
-        # for par
-        if len(ini[0]) != 0:
-            ftmp = fg + '-par'
-            for ndx,par in enumerate(ini[0]):
-                fgp = file_gen_new(ftmp,fextend='png',foriginal=False)
-                fbo = plot_filtration_save_image(
-                    par,
-                    fin[0][ndx],
-                    dt=dt,
-                    fname=fgp,
-                    key=key,
-                )
-                fout['par'].append(fgp if fbo else None)
-        # for all
-        if len(ini[1]) != 0:
-            fga = fg + '-all'
-            fga = file_gen_new(fga,fextend='png',foriginal=False)
-            fbo = plot_filtration_save_image(
-                ini[1],
-                fin[1],
-                dt=dt,
-                fname=fga,
-                key=key,
-            )
-            fout['all'] = fga if fbo else None
-        return fout
+            f.write('# Note: filtration process probability data\n\n')
+            for tmp in self.datafilelist:
+                f.write('@FILE {:}\n'.format(tmp))
+            f.write('@BTOL   {:}\n@ATOL   {:}\n\n\n'.format(self.btol, self.atol))
+            mbcon = [[i+1 for i in j] for j in self.bcon]
+            macon = [[i+1 for i in j] for j in self.acon]
+            f.write(gen_outputs(self.overall_prob_begin,mbcon,macon,'begin'))
+            f.write(gen_outputs(self.overall_prob_final,mbcon,macon,'final'))
+        return fdata
 
 
 
@@ -2434,6 +2296,11 @@ class BulkProcess:
         Rule:
             now, we think as user input is always on the first priority,
             and bcon & acon at the latter place
+
+            connection is got in sequence:
+            1) if bcon or acon is set
+            2) if fragments is set
+            3) default: bcon=AnglePerception.nconb, acon=AnglePerception.ncona
         """
         fn = AnglePerception(system)
         if not fn.nice:
@@ -2442,15 +2309,46 @@ class BulkProcess:
             return
         fn.run()
 
+        if 'userinputs' in self.kwargs and self.kwargs['userinputs'] is True:
+            self.kwargs['userinputs'] = True
+        else:
+            self.kwargs['userinputs'] = False
+
+        bog = False
+        if 'fragments' in self.kwargs and self.kwargs['fragments'] is not None:
+            bog = True
+            if self.kwargs['userinputs']:
+                fg = [[j-1 for j in i] for i in self.kwargs['fragments']]
+                if min([min(i) for i in fg]) < 0:
+                    self.nice = False
+                    self.info = 'Fatal: wrong defined: atom index should start at 1'
+                    return
+                self.kwargs['fragments'] = fg
+            else:
+                fg = self.kwargs['fragments']
+            if max([max(i) for i in fg]) >= len(system):
+                self.nice = False
+                self.info = 'Fatal: wrong defined: atom index exceeding: < {:} >'.format(len(system))
+                return
+            if len(set([j for i in fg for j in i])) != sum([len(i) for i in fg]):
+                self.nice = False
+                self.info = 'Fatal: wrong defined: fragments: has repeats'
+                return
+            fbcon, facon = self.func_calc_connections(self.kwargs['fragments'])
+        else:
+            self.kwargs['fragments'] = fn.fragments
+
         # take care of special case, when input is None
         if 'bcon' in self.kwargs and self.kwargs['bcon'] is not None:
             if isinstance(self.kwargs['bcon'],list):
                 self.kwargs['bcon'] = self.check_user_input_connections(
                     self.kwargs['bcon'],
-                    fn.fragments
+                    fn.fragments,
+                    self.kwargs['userinputs']
                 )
             elif isinstance(self.kwargs['bcon'],str):
-                contmp = self.kwargs['bcon'].lower()
+                tmpbcon = self.kwargs['bcon']
+                contmp = tmpbcon.lower()
                 if 'no' in contmp or 'non' in contmp or 'none' in contmp:
                     self.kwargs['bcon'] = []
                 elif hasattr(fn,contmp) and 'b' in contmp and 'con' in contmp:
@@ -2458,8 +2356,14 @@ class BulkProcess:
                 else:
                     self.kwargs['bcon'] = False
             else:
+                tmpbcon = self.kwargs['bcon']
                 self.kwargs['bcon'] = False
-            if self.kwargs['bcon'] is False: return
+            if self.kwargs['bcon'] is False:
+                self.nice = False
+                self.info = 'Fatal: wrong defined: bcon: {:}'.format(tmpbcon)
+                return
+        elif bog:
+            self.kwargs['bcon'] = fbcon
         else:
             if fn.fragments is None or len(fn.fragments) == 1:
                 self.kwargs['bcon'] = fn.nconb
@@ -2470,10 +2374,12 @@ class BulkProcess:
             if isinstance(self.kwargs['acon'],list):
                 self.kwargs['acon'] = self.check_user_input_connections(
                     self.kwargs['acon'],
-                    fn.fragments
+                    fn.fragments,
+                    self.kwargs['userinputs']
                 )
             elif isinstance(self.kwargs['acon'],str):
-                contmp = self.kwargs['acon'].lower()
+                tmpacon = self.kwargs['acon']
+                contmp = tmpacon.lower()
                 if 'no' in contmp or 'non' in contmp or 'none' in contmp:
                     self.kwargs['acon'] = []
                 elif hasattr(fn,contmp) and 'a' in contmp and 'con' in contmp:
@@ -2481,38 +2387,27 @@ class BulkProcess:
                 else:
                     self.kwargs['acon'] = False
             else:
+                tmpacon = self.kwargs['acon']
                 self.kwargs['acon'] = False
-            if self.kwargs['acon'] is False: return
+            if self.kwargs['acon'] is False:
+                self.nice = False
+                self.info = 'Fatal: wrong defined: acon: {:}'.format(tmpacon)
+                return
+        elif bog:
+            self.kwargs['acon'] = facon
         else:
             if fn.fragments is None or len(fn.fragments) == 1:
                 self.kwargs['acon'] = fn.ncona
             else:
                 self.kwargs['acon'] = fn.fncona
-        
-        if 'fragments' in self.kwargs and self.kwargs['fragments'] is not None:
-            if 'userinputs' in self.kwargs and self.kwargs['userinputs'] is True:
-                fg = [[i-1] for i in self.kwargs['fragments']]
-                if min([min(i) for i in fg]) < 0:
-                    self.nice = False
-                    self.info = 'Fatal: wrong defined: atom index cannot less than 0'
-                    return
-            else:
-                fg = self.kwargs['fragments']
-            ux = max([max(i) for i in system])
-            fx = max([max(i) for i in fg])
-            if ux-1 < fx:
-                self.nice = False
-                self.info = 'Fatal: wrong defined: atom index exceeding: < {:} >'.format(ux)
-                return
-            self.kwargs['bcon'],self.kwargs['acon'] = self.func_calc_connection(fg)
-        else:
-            self.kwargs['fragments'] = fn.fragments
+
         # always set final userinputs to False
         self.kwargs['userinputs'] = False
 
 
 
     def check_user_input_connections(self,ul,fl,bo=None):
+        offset = 1 if bo is True else 0
         for ndx in ul:
             if len(set(ndx)) != len(ndx):
                 self.nice = False
@@ -2520,15 +2415,15 @@ class BulkProcess:
                 return False
         ux = max([max(i) for i in ul])
         fx = max([max(i) for i in fl])
-        if ux-1 > fx:
+        if ux-offset > fx:
             self.nice = False
             self.info = 'Fatal: wrong defined: atom index exceeding: < {:} >'.format(ux)
-            return
+            return False
         # convert to python readable number, starts at 0
         ptmp = []
-        for i in ul: ptmp.append([j-1 for j in i])
+        for i in ul: ptmp.append([j-offset for j in i])
         for i in ptmp:
-            if min(i)-1 < 0:
+            if min(i) < 0:
                 self.nice = False
                 self.info = 'Fatal: atom index should start at 1'
                 return False
@@ -2536,7 +2431,7 @@ class BulkProcess:
 
 
 
-    def func_calc_connection(self,fragments):
+    def func_calc_connections(self,fragments):
         """Bond & Angle connection based on fragments
 
         Input:
@@ -2577,25 +2472,16 @@ class BulkProcess:
 
 
 
-datafilelist = [
-    
-]
-indexfilelist = [
-
-
-]
-
-
-
 
 def parsecmd():
     """Parse command line input"""
     def parse_remove_chars(line):
         line = line.replace('[',' ').replace(']',' ').replace(';',',')
         return line
-    
+
     def parse_in_line(line,bobcon=False,boacon=False):
         line = parse_remove_chars(line)
+        line = line.replace('-',' ').replace('_',' ')
         lt = line.split(',')
         ls = []
         for t in lt:
@@ -2617,7 +2503,7 @@ def parsecmd():
                 ls.append(lp)
 
         if len(ls) == 0: return []
-        
+
         lm = []
         for t in ls:
             lx = []
@@ -2628,7 +2514,7 @@ def parsecmd():
                     print('Warning: wrong input < {:} >'.format(line))
                     raise ValueError('wrongly defined')
             lm.append(lx)
-        
+
         return lm
 
 
@@ -2645,29 +2531,35 @@ def parsecmd():
         '-f','--datafilelist',
         help='Data files, separate by space or comma',
         nargs='+',
+        metavar='file',
     )
     parser.add_argument(
         '-d','--indexfilelist',
         help='Index files, as the filtration reference',
         nargs='+',
+        metavar='file',
     )
     parser.add_argument(
-        '-t','--tolerance',
-        help='In sequence, Bonds(Angstrom), Angles(Degree)',
-        nargs='+',
-        metavar='inc',
+        '-btol','--btol',
+        help='bonds tolerance, any changes in bcon smaller than it will be filtered out',
+        type=float,
     )
     parser.add_argument(
-        '-b','-bcon','--bcon',
-        help='Bond Connections, in pairs, separate by comma',
-        nargs='+',
-        metavar='B',
+        '-atol','--atol',
+        help='angles tolerance, any changes in acon smaller than it will be filtered out',
+        type=float,
     )
     parser.add_argument(
-        '-a','-acon','--acon',
-        help='Angle Connections, in pairs, separate by comma',
+        '-bcon',
+        help='Bond connections, in pairs, separate by comma',
         nargs='+',
-        metavar='A',
+        metavar='B1 B2, B1-B2',
+    )
+    parser.add_argument(
+        '-acon',
+        help='Angle connections, in pairs, separate by comma',
+        nargs='+',
+        metavar='A1 A2 A3, A1-A2-A3',
     )
     parser.add_argument(
         '-g','--fragments',
@@ -2676,38 +2568,28 @@ def parsecmd():
         metavar='G',
     )
     parser.add_argument(
-        '-ob','-obonds','--obonds',
-        help='Turn on bonds probability calculation, Boolean',
+        '--no-oball',
+        help='Turn off bonds probability overall calculation, Boolean',
         action='store_true',
     )
     parser.add_argument(
-        '-oa','-oangles','--oangles',
-        help='Turn on angles probability calculation, Boolean',
+        '-obpar','--obpar',
+        help='Turn on bonds probability parameters calculation, Boolean',
         action='store_true',
     )
     parser.add_argument(
-        '-op','-opar','--opar',
-        help='Turn on calculation for each par, Boolean',
+        '--no-oaall',
+        help='Turn off angles probability overall calculation, Boolean',
         action='store_true',
     )
     parser.add_argument(
-        '--no-oall',
-        help='Turn off calculation for in all, Boolean',
+        '-oapar','--oapar',
+        help='Turn on angles probability parameters calculation, Boolean',
         action='store_true',
     )
     parser.add_argument(
         '-nc','--no-force-double-check',
-        help='Turn off double check before execution',
-        action='store_true',
-    )
-    parser.add_argument(
-        '-ni','--no-image-outputs',
-        help='Turn off image outputs',
-        action='store_true',
-    )
-    parser.add_argument(
-        '-at','--force-real-atom-type',
-        help='Outputs using real atom type, if possible',
+        help='Turn off double check prompt info before execution',
         action='store_true',
     )
     parser.add_argument(
@@ -2717,16 +2599,21 @@ def parsecmd():
     )
     parser.add_argument(
         '-p','--file-format-explanations',
-        help='Show input file format explanations',
+        help='Show input system file format explanations',
+        action='store_true',
+    )
+    parser.add_argument(
+        '-u','--userinputs',
+        help='specify it when input connections and fragments start at 1',
         action='store_true',
     )
     parser.add_argument(
         '-o','--fname',
-        help='Output file name',
+        help='Output system file name',
     )
     parser.add_argument(
         '-ft','--ftype',
-        help='Output file type, [txt, xsf, xyz]',
+        help='Output system file type, [txt, xsf, xyz]',
     )
 
     if len(sys.argv) == 1:
@@ -2738,83 +2625,69 @@ def parsecmd():
         for i in FEATURES:
             print(i)
         exit()
-    
+
     if args.file_format_explanations:
         print(FILEFORMAT)
         exit()
 
     # default settings
     fdict = {
-        #'datafilelist'          :   None,
-        'indexfilelist'         :   None,
-        'bcon'                  :   None,
-        'acon'                  :   None,
-        'fragments'             :   None,
-        'force_double_check'    :   True,
-        'force_real_atom_type'  :   None,
-        'bool_save_images'      :   True,
-        'tolerance'             :   None,
-        'fname'                 :   None,
-        'ftype'                 :   None,
-        'obonds'                :   None,
-        'oangles'               :   None,
-        'opar'                  :   None,
-        'oall'                  :   True,
+        'datafilelist'              :   None,
+        'indexfilelist'             :   None,
+        'bcon'                      :   None,
+        'btol'                      :   None,
+        'oball'                     :   True,
+        'obpar'                     :   False,
+        'acon'                      :   None,
+        'atol'                      :   None,
+        'oaall'                     :   True,
+        'oapar'                     :   False,
+        'fragments'                 :   None,
+        'bool_force_double_check'   :   True,
+        'userinputs'                :   None,
+        'fname'                     :   None,
+        'ftype'                     :   None,
     }
     if args.datafilelist is None:
         print('Warning: -f/--datafilelist is missing')
         exit()
 
     stmp = parse_remove_chars(' '.join(args.datafilelist)).replace(',',' ')
-    datafilelist = stmp.split()
+    fdict['datafilelist'] = stmp.split()
 
-    if args.indexfilelist is not None:
+    if args.indexfilelist:
         stmp = parse_remove_chars(' '.join(args.indexfilelist)).replace(',',' ')
         fdict['indexfilelist'] = stmp.split()
 
-    if args.bcon is not None:
+    if args.bcon:
         fdict['bcon'] = parse_in_line(' '.join(args.bcon),bobcon=True)
-    if args.acon is not None:
+    if args.acon:
         fdict['acon'] = parse_in_line(' '.join(args.acon),boacon=True)
-    if args.fragments is not None:
+    if args.fragments:
         fdict['fragments'] = parse_in_line(' '.join(args.fragments))
 
-    if args.obonds: fdict['obonds'] = True
-    if args.oangles: fdict['oangles'] = True
-    if args.opar: fdict['opar'] = True
-    if args.no_oall: fdict['oall'] = False
-    if args.no_force_double_check: fdict['force_double_check'] = False
-    if args.force_real_atom_type: fdict['force_real_atom_type'] = True
-    if args.no_image_outputs: fdict['bool_save_images'] = False
+    if args.btol: fdict['btol'] = args.btol
+    if args.atol: fdict['atol'] = args.atol
+    if args.no_oball: fdict['oball'] = False
+    if args.obpar: fdict['obpar'] = True
+    if args.no_oaall: fdict['oaall'] = False
+    if args.oapar: fdict['oapar'] = True
+    if args.no_force_double_check: fdict['bool_force_double_check'] = False
+    if args.userinputs: fdict['userinputs'] = True
+    if args.fname: fdict['fname'] = args.fname
+    if args.ftype: fdict['ftype'] = args.ftype
 
-    if args.fname is not None: fdict['fname'] = args.fname
-    if args.ftype is not None: fdict['ftype'] = args.ftype
-
-    if args.tolerance is not None:
-        stmp = parse_remove_chars(' '.join(args.tolerance)).replace(',',' ')
-        lt = stmp.split()
-        bo = False
-        if len(lt) == 0:
-            pass
-        elif len(lt) == 2:
-            try:
-                t1 = float(lt[0])
-                t2 = float(lt[1])
-                fdict['tolerance'] = [t1,t2]
-            except ValueError:
-                bo = True
-        else:
-            bo = True
-        if bo:
-            print('Warning: wrong defined < {:} >'.format(args.tolerance))
-            raise ValueError('wrongly defined')
-
-    FF = BulkProcess(datafilelist,**fdict,)
-    FF.run()
+    BP = BulkProcess(**fdict)
+    if not BP.nice:
+        print(BP.info)
+        return
+    BP.run()
+    if not BP.nice: print(BP.info)
 
 
 
 
 if __name__ == '__main__':
     parsecmd()
+
 
