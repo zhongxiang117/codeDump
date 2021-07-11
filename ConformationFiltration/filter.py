@@ -57,6 +57,8 @@ FEATURES = [
     'version 3.3.7  : refine BulkProcess',
     'version 3.3.8  : refine parsecmd',
     'version 3.40 : RELEASE',
+    'version 3.50 : deep refine Filtration, RELEASE',
+    'version 3.60 : add class PlotSamples',
 ]
 
 
@@ -1501,6 +1503,7 @@ class Filtration:
         ainc = self.atol
 
         if self.keepndxlist is None: self.keepndxlist = []
+        self.keepndxlist = sorted(self.keepndxlist)
 
         if self.obpar or self.oball:
             print('Note: calculating begin bonds probability ...')
@@ -1510,14 +1513,17 @@ class Filtration:
             self.prob_begin['apar'], self.prob_begin['aall'] = self.calc_probs(anglelist,ainc,self.oapar,self.oaall)
 
         self.reflist = self.calc_filterlists(bondlist,anglelist,binc,ainc,self.keepndxlist)
+        self.reflist.append(-1)
 
         print('Note: updating ...')
         tmpsys = []
         self.bondlist = []
         self.anglelist = []
         self.sysbad = []
+        cnt = 0
         for ndx in range(len(self.system)):
-            if ndx in self.reflist:
+            if ndx == self.reflist[cnt]:
+                cnt += 1
                 self.sysbad.append(self.system[ndx])
             else:
                 if ndx not in self.keepndxlist:
@@ -1526,6 +1532,7 @@ class Filtration:
                     self.anglelist.append(anglelist[ndx])
         # alias
         self.system = tmpsys
+        self.reflist.remove(-1)
 
         if self.obpar or self.oball:
             print('Note: calculating final bonds probability ...')
@@ -1668,14 +1675,19 @@ class Filtration:
         ndxlist = sorted(range(len(bal)),key=lambda k: bal[k])
         badel = [bal[j] - bal[ndxlist[i]] for i,j in enumerate(ndxlist[1:])]
 
+        # make a deep copy of keepndxlist
         if keepndxlist is None: keepndxlist = []
+        keepndxlist = [i for i in keepndxlist]
+        keepndxlist.append(-1)
 
         reflist = []
         ndx = 0
+        cnt = 0
         while ndx < len(badel):
             if badel[ndx] < inc:
                 v = ndxlist.pop(ndx+1)
-                if v in keepndxlist:
+                if v == keepndxlist[cnt]:
+                    cnt += 1
                     if ndx >= len(badel)-1: break
                     # be aware in here, ndxlist has been processed
                     v2 = ndxlist[ndx+1]
@@ -1688,6 +1700,7 @@ class Filtration:
                     badel[ndx] += dt
             else:
                 ndx += 1
+        # reflist has to be sorted from smaller to bigger for following refinement
         return sorted(reflist)
 
 
@@ -1860,7 +1873,7 @@ def file_gen_new(fname,fextend='txt',foriginal=True,bool_dot=True):
 
 
 
-def plot_filtration_save_image(ini,fin=None,dt=None,fname=None,key=None):
+def plot_save_image(ini,fin=None,dt=None,fname=None,key=None):
     """
     Inputs:
         ini     :   2D  :   List [ List[int, ...],  float]
@@ -1964,11 +1977,12 @@ class BulkProcess:
         self.nice = True
         self.info = ''
         self.datafilelist = []
-        for f in datafilelist:
-            if os.path.isfile(f):
-                self.datafilelist.append(f)
-            else:
-                print('Warning: not a data file < {:} >, ignoring'.format(f))
+        if datafilelist is not None:
+            for f in datafilelist:
+                if os.path.isfile(f):
+                    self.datafilelist.append(f)
+                else:
+                    print('Warning: not a data file < {:} >, ignoring'.format(f))
 
         if len(self.datafilelist) == 0:
             self.nice = False
@@ -1989,7 +2003,7 @@ class BulkProcess:
 
 
 
-    def run(self):
+    def run(self,debug=None):
         systemlist,energylist = self.get_datalist(self.datafilelist)
         self.molnms = [len(i) for i in systemlist]
 
@@ -2019,6 +2033,8 @@ class BulkProcess:
 
         # prompt for double check
         if self.bool_force_double_check:
+            print('\nCheck: current work path:')
+            print('   => {:}'.format(os.path.abspath('.')))
             print('\nCheck: data files:')
             for cnt,fd in enumerate(self.datafilelist):
                 print('   => {:} -- molnms {:}'.format(fd,self.molnms[cnt]))
@@ -2069,6 +2085,7 @@ class BulkProcess:
                 return
             print()
 
+        if debug: return allsystem
         mf.run()
 
         # accumulation only on datafilelist
@@ -2125,7 +2142,7 @@ class BulkProcess:
         print('\nNote: saving bulk process results ...')
         tot = len(self.overall_system)
         print('Note: final molnms: < {:} >'.format(tot))
-        outratio = round(tot/sum(self.molnms),2)
+        outratio = round(tot/sum(self.molnms),4)
         print('Note: filtration ratio: < {:} >'.format(outratio))
 
         # files
@@ -2145,7 +2162,7 @@ class BulkProcess:
 
             if len(self.overall_prob_begin['ball']) != 0:
                 fgp = file_gen_new('bonds-all',fextend='png',foriginal=False)
-                fbo = plot_filtration_save_image(
+                fbo = plot_save_image(
                     self.overall_prob_begin['ball'],
                     self.overall_prob_final['ball'],
                     dt=self.btol,
@@ -2156,7 +2173,7 @@ class BulkProcess:
 
             if len(self.overall_prob_begin['aall']) != 0:
                 fgp = file_gen_new('angles-all',fextend='png',foriginal=False)
-                fbo = plot_filtration_save_image(
+                fbo = plot_save_image(
                     self.overall_prob_begin['aall'],
                     self.overall_prob_final['aall'],
                     dt=self.atol,
@@ -2165,32 +2182,37 @@ class BulkProcess:
                 )
                 if fbo: filedict['image all angles filtration file'] = fgp
 
-
+            filedict['image bonds par filtration file'] = []
             for i,t in enumerate(self.overall_prob_begin['bpar']):
-                fgp = file_gen_new('bonds-par',fextend='png',foriginal=False)
-                fbo = plot_filtration_save_image(
+                mark = 'bonds-par-{:}+{:}'.format(*self.bcon[i])
+                fgp = file_gen_new(mark,fextend='png',foriginal=False)
+                fbo = plot_save_image(
                     t,
                     self.overall_prob_final['bpar'][i],
                     dt=self.btol,
                     fname=fgp,
                     key='bonds',
                 )
-                if fbo: filedict['image bonds par filtration file'] = fgp
+                if fbo: filedict['image bonds par filtration file'].append(fgp)
 
+            filedict['image angles par filtration file'] = []
             for i,t in enumerate(self.overall_prob_begin['apar']):
-                fgp = file_gen_new('angles-par',fextend='png',foriginal=False)
-                fbo = plot_filtration_save_image(
+                mark = 'angles-par-{:}+{:}+{:}'.format(*self.acon[i])
+                fgp = file_gen_new(mark,fextend='png',foriginal=False)
+                fbo = plot_save_image(
                     t,
                     self.overall_prob_final['apar'][i],
                     dt=self.btol,
                     fname=fgp,
                     key='angles',
                 )
-                if fbo: filedict['image angles par filtration file'] = fgp
+                if fbo: filedict['image angles par filtration file'].append(fgp)
 
         ftot = file_gen_new('bulk-process-info')
         print('Note: please check summary file for more info: < {:} >'.format(ftot))
         with open(ftot,'wt') as f:
+            f.write('Note: current work path:\n')
+            f.write('   => {:}\n'.format(os.path.abspath('.')))
             f.write('Note: bulk process for input files:\n')
             for cnt,fd in enumerate(self.datafilelist):
                 f.write('  => {:} -- molnms {:}\n'.format(fd,self.molnms[cnt]))
@@ -2200,7 +2222,7 @@ class BulkProcess:
             f.write('\nNote: result file:\n')
             f.write('  => {:} -- molnms {:}\n'.format(outfile,len(self.overall_system)))
             f.write('\nNote: filtration ratio: {:}\n'.format(outratio))
-
+            f.write('\nNote: Index of connections start at 1\n')
             f.write('\nNote: bonds connections:\n')
             tot = ''
             out = '  => '
@@ -2231,7 +2253,12 @@ class BulkProcess:
             f.write('Note: atol   : {:} degree\n'.format(self.atol))
 
             for k,v in filedict.items():
-                f.write('Note: {:<40}:   {:}\n'.format(k,v))
+                if isinstance(v,str):
+                    f.write('Note: {:<40}:   {:}\n'.format(k,v))
+                else:
+                    f.write('Note: {:}:\n'.format(k))
+                    for i,j in enumerate(v):
+                        f.write('  ==> {:>3}: {:}\n'.format(i+1,j))
 
 
 
@@ -2469,6 +2496,385 @@ class BulkProcess:
                 for v in fragments[2:]:
                     acon.append([at1,at2,v[0]])
         return bcon,acon
+
+
+
+
+class PlotSamples(BulkProcess):
+    def __init__(self,probdatafilelist=None,nmsamples=None,nmlist=None,
+                startndx=None,endndx=None,incndx=None,nmranges=None,
+                *args,**kwargs):
+        super().__init__(*args,**kwargs)
+
+        self.probdatafilelist = []
+        for f in probdatafilelist:
+            if os.path.isfile(f):
+                self.probdatafilelist.append(f)
+            else:
+                print('Warning: not a probability data file < {:} >, ignoring'.format(f))
+
+        self.nmsamples = nmsamples
+        self.startndx = startndx
+        self.endndx = endndx
+        self.incndx = incndx
+        self.nmranges = nmranges
+        self.nmlist = nmlist
+
+        # after debug run, everything is ready
+        self.allsystems = []
+        if self.nice:
+            self.allsystems = super().run(debug=True)
+            if self.allsystems is None: self.allsystems = []
+        bo = self.nice
+        tot = len(self.allsystems)
+        self.choices = []
+        if isinstance(nmlist,list):
+            for i in nmlist:
+                if not isinstance(i,int):
+                    bo = False
+                    print('Fatal: wrong defined: not a number: {:}'.format(i))
+                    break
+                if i > tot:
+                    bo = False
+                    print('Fatal: wrong defined: too large: {:}'.format(i))
+                    break
+        else:
+            bo = False
+            if nmlist is None: print('Fatal: wrong defined: nmlist')
+        if bo:
+            bo = False
+            for i in nmlist:
+                self.choices.append(random.sample(self.allsystems,i))
+        if bo and 'datafilelist' in kwargs:
+            if tot <= 20:
+                print('Warning: no data or too few due to wrong sample files inputs')
+                bo = False
+        if bo:
+            if endndx is not None and endndx > tot:
+                print('Fatal: too large: endndx --> total:{:}'.format(tot))
+                bo = False
+        if bo:
+            if startndx is not None and startndx > tot:
+                print('Fatal: too large: startndx --> total:{:}'.format(tot))
+                bo = False
+        if bo:
+            if incndx is not None and incndx > tot:
+                print('Fatal: too large: incndx --> total:{:}'.format(tot))
+                bo = False
+        if bo:
+            if nmranges is not None and nmranges > tot:
+                print('Fatal: too large: nmranges --> total:{:}'.format(tot))
+                bo = False
+        if bo:
+            if nmsamples is not None and nmsamples*8 > tot:
+                print('Fatal: too large: nmsamples --> total:{:}'.format(tot))
+                bo = False
+        if bo:
+            # alias
+            samples = self.allsystems
+            if startndx is not None: samples = samples[startndx:]
+            if endndx is not None: samples = samples[:endndx]
+            if nmranges is None: nmranges = 0
+            if nmsamples is None: nmsamples = 5
+            tot = len(samples)
+            if incndx is None:
+                t = tot // nmsamples
+                for i in range(nmsamples):
+                    self.choices.append(random.sample(samples,t))
+            else:
+                dt = incndx
+                while dt < tot:
+                    tmp = random.randrange(nmranges)
+                    self.choices.append(samples[dt-incndx:dt])
+                    dt += incndx + tmp
+
+
+
+    def run(self):
+        bondsdict = {'all':[], }
+        anglesdict = {'all':[], }
+        if len(self.probdatafilelist) != 0:
+            print('Note: generate plots on probability data files ...')
+            for f in self.probdatafilelist:
+                bonds, angles = self.read_probdatafile(f)
+                for k in bonds:
+                    if k not in bondsdict: bondsdict[k] = []
+                    bondsdict[k].append(bonds[k])
+                for k in angles:
+                    if k not in anglesdict: anglesdict[k] = []
+                    anglesdict[k].append(angles[k])
+
+        if len(self.choices) != 0 and self.nice:
+            overall_prob_begin = []
+            overall_prob_final = []
+            overall_dt = []
+            bconlist = []
+            aconlist = []
+            for cnt,ms in enumerate(self.choices):
+                print('Note: generate plots on < {:} > sample files ...'.format(cnt+1))
+                mf = Filtration(system=ms,*self.args,**self.kwargs)
+                mf.run()
+                bconlist.append(mf.bcon)
+                aconlist.append(mf.acon)
+                overall_prob_begin.append(mf.prob_begin)
+                overall_prob_final.append(mf.prob_final)
+                overall_dt.append([mf.btol, mf.atol])
+            
+            for i,di in enumerate(overall_prob_begin):
+                df = overall_prob_final[i]
+
+                if len(di['ball']) != 0:
+                    p = {}
+                    p['begin'] = di['ball']
+                    p['final'] = df['ball']
+                    p['dt'] = overall_dt[i][0]
+                    bondsdict['all'].append(p)
+                
+                if len(di['aall']) != 0:
+                    p = {}
+                    p['begin'] = di['aall']
+                    p['final'] = df['aall']
+                    p['dt'] = overall_dt[i][1]
+                    anglesdict['all'].append(p)
+                
+                if bconlist[i] is not None and len(bconlist[i]) != 0 and len(di['bpar']) != 0:
+                    for j,k in enumerate(bconlist[i]):
+                        if k[0] > k[1]: k[0],k[1] = k[1],k[0]
+                        key = '{:}-{:}'.format(k[0],k[1])
+                        if key not in bondsdict: bondsdict[key] = []
+                        if len(di['bpar'][j]) != 0:
+                            p = {}
+                            p['begin'] = di['bpar'][j]
+                            p['final'] = df['bpar'][j]
+                            p['dt'] = overall_dt[i][0]
+                            bondsdict[key].append(p)
+
+                if aconlist[i] is not None and len(aconlist[i]) != 0 and len(di['apar']) != 0:
+                    for j,k in enumerate(aconlist[i]):
+                        if k[0] > k[2]: k[0],k[2] = k[2],k[0]
+                        key = '{:}-{:}-{:}'.format(k[0],k[1],k[2])
+                        if key not in anglesdict: anglesdict[key] = []
+                        if len(di['apar'][j]) != 0:
+                            p = {}
+                            p['begin'] = di['apar'][j]
+                            p['final'] = df['apar'][j]
+                            p['dt'] = overall_dt[i][1]
+                            anglesdict[key].append(p)
+
+        for k in bondsdict:
+            self.save_image_samples(bondsdict[k],label='bonds')
+        for k in anglesdict:
+            self.save_image_samples(anglesdict[k],label='angles')
+
+
+
+    class CYCLE:
+        """infinite cycle works similar like itertools.cycle()"""
+        def __init__(self,data):
+            self.data = data
+            self.nm = 0
+        def __iter__(self):
+            return self
+        def __next__(self):
+            if self.nm >= len(self.data): self.nm = 0
+            v = self.data[self.nm]
+            self.nm += 1
+            return v
+        def next(self):
+            return self.__next__()
+
+
+
+    def save_image_samples(self,datalist,label=None,fname=None):
+        """
+        Input:
+            datalist: List[dict]: key in dict begin|final|dt
+        """
+        # the number of linestyle should be in ODD number
+        linestyle = self.CYCLE(['solid','dotted','dashdot',])
+        colors = self.CYCLE(['b','r','m','g','y','brown','palegreen','deepskyblue'])
+        if label is None or label.lower() == 'bonds':
+            label = 'bonds'
+        else:
+            label = 'angles'
+        if fname is None: fname = 'bulk-image-samples-{:}'.format(label)
+        fname = file_gen_new(fname,fextend='png')
+        info = 'Conformers filtration on {:}'.format(label.capitalize())
+
+        prodatalist = []
+        molnms = []
+        for data in datalist:
+            if not isinstance(data,dict): continue
+            if not ('begin' in data and 'final' in data and 'dt' in data): continue
+            if len(data['begin'][0]) < 5 or len(data['final'][0]) < 5: continue
+            prodatalist.append(data)
+            molnms.append(sum(data['begin'][0]))
+        if len(prodatalist) == 0: return
+
+        # sort them to make plot more tight
+        reflist = sorted(range(len(molnms)), key=lambda k: molnms[k])
+        prodatalist = [prodatalist[i] for i in reflist]
+
+        # space [1,1] for plot, space [1,2] for legend
+        fig, (ax1, ax2) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [4,1]})
+        fig.set_figheight(6)
+        fig.set_figwidth(10)
+
+        lines = []
+        for d in prodatalist:
+            color = colors.next()
+            ils = linestyle.next()
+            fls = linestyle.next()
+            itxt = 'Begin molnms = {:}'.format(sum(d['begin'][0]))
+            ftxt = 'Final molnms = {:}'.format(sum(d['final'][0]))
+            ix = [d['begin'][1]+d['dt']*i for i in range(len(d['begin'][0]))]
+            fx = [d['final'][1]+d['dt']*i for i in range(len(d['final'][0]))]
+            iln, = ax1.plot(ix,d['begin'][0],color=color,linestyle=ils,label=itxt)
+            fln, = ax1.plot(fx,d['final'][0],color=color,linestyle=fls,label=ftxt)
+            lines.append(iln)
+            lines.append(fln)
+
+        ax1.set_title(info)
+        ax2.axis('off')
+        ax2.legend(handles=lines,loc='center')
+        plt.tight_layout()
+        print('Note: image file is saved to < {:} >'.format(fname))
+        plt.savefig(fname)
+        plt.close()
+        return fname
+
+
+
+    def read_probdatafile(self,file):
+        def getdata(text,key=None):
+            ltmp = text.split()
+            if len(ltmp) == 0: return []
+            if key is not None and key >= len(ltmp): return []
+            value = None
+            data = []
+            for i,v in enumerate(ltmp):
+                if i == key:
+                    try:
+                        value = float(v)
+                    except ValueError:
+                        return []
+                    continue
+                else:
+                    try:
+                        v = int(v)
+                    except ValueError:
+                        return []
+                data.append(v)
+            return [data,value]
+
+        atol = None
+        btol = None
+        ball = {'begin':'', 'final':''}
+        bpar = {'begin':[], 'final':[]}
+        aall = {'begin':'', 'final':''}
+        apar = {'begin':[], 'final':[]}
+        with open(file,'rt') as f: profile = f.readlines()
+        cnt = -1
+        while True:
+            cnt += 1
+            if cnt >= len(profile): break
+            ltmp = profile[cnt].split()
+            if len(ltmp) < 2 or ltmp[0][0] == '#': continue
+            key = ltmp[0].lower()
+            if key == '@btol' or key == '@atol':
+                try:
+                    if key == '@btol':
+                        btol = float(ltmp[1])
+                    else:
+                        atol = float(ltmp[1])
+                except ValueError:
+                    continue
+            elif key not in ['@begin','@final']:
+                continue
+            mark = ltmp[1].lower()
+            if mark in ['ball','aall','bpar','apar']:
+                txt = ''
+                if mark == 'bpar':
+                    if len(ltmp) < 4: continue
+                    txt += ltmp[2] + '  ' + ltmp[3]
+                if mark == 'apar':
+                    if len(ltmp) < 5: continue
+                    txt += ltmp[2] + '  ' + ltmp[3] + '  ' + ltmp[4]
+                while True:
+                    cnt += 1
+                    if cnt >= len(profile): break
+                    line = profile[cnt].strip()
+                    if len(line) == 0: continue
+                    if line[0] == '@':
+                        # caution: here is important
+                        cnt -= 1
+                        break
+                    txt += '  ' + line
+                if key == '@begin':
+                    if mark == 'ball':
+                        ball['begin'] = txt
+                    elif mark == 'aall':
+                        aall['begin'] = txt
+                    elif mark == 'bpar':
+                        bpar['begin'].append(txt)
+                    else:
+                        apar['begin'].append(txt)
+                else:
+                    if mark == 'ball':
+                        ball['final'] = txt
+                    elif mark == 'aall':
+                        aall['final'] = txt
+                    elif mark == 'bpar':
+                        bpar['final'].append(txt)
+                    else:
+                        apar['final'].append(txt)
+        if btol is None: btol = 0.1
+        if atol is None: atol = 0.1
+        # process for plot
+        # bonds format:
+        #   b1-b2 (b1<b2):   begin: List[ List[int], float]
+        #                    final: List[ List[int], float]
+        #                    dt   : float
+        # angles format:
+        #   a1-a-a2 (a1<a2): begin: List[ List[int], float]
+        #                    final: List[ List[int], float]
+        #                    dt   : float
+        # special key:  'all'
+        bonds = {'all':{}, }
+        angles = {'all':{}, }
+
+        bonds['all']['begin'] = getdata(ball['begin'],0)
+        bonds['all']['final'] = getdata(ball['final'],0)
+        bonds['all']['dt'] = btol
+        angles['all']['begin'] = getdata(aall['begin'],0)
+        angles['all']['final'] = getdata(aall['final'],0)
+        angles['all']['dt'] = atol
+
+        for i in bpar:
+            for j in bpar[i]:
+                data = getdata(j,2)
+                if len(data) == 0: continue
+                bi,bj = data[0][0], data[0][1]
+                if bi > bj: bj, bi = bi, bj
+                key = '{:}-{:}'.format(bi,bj)
+                data[0] = data[0][2:]
+                if key not in bonds: bonds[key] = {}
+                bonds[key][i] = data
+                bonds[key]['dt'] = btol
+
+        for i in apar:
+            for j in apar[i]:
+                data = getdata(j,3)
+                if len(data) == 0: continue
+                ai,aj = data[0][0], data[0][2]
+                if ai > aj: aj, ai = ai, aj
+                key = '{:}-{:}-{:}'.format(ai,data[0][1],aj)
+                data[0] = data[0][3:]
+                if key not in angles: angles[key] = {}
+                angles[key][i] = data
+                angles[key]['dt'] = atol
+
+        return bonds, angles
 
 
 
