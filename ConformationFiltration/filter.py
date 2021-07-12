@@ -56,9 +56,10 @@ FEATURES = [
     'version 3.3.6  : refine Filtration',
     'version 3.3.7  : refine BulkProcess',
     'version 3.3.8  : refine parsecmd',
-    'version 3.40 : RELEASE',
-    'version 3.50 : deep refine Filtration, RELEASE',
-    'version 3.60 : add class PlotSamples',
+    'version 3.4.0  : RELEASE',
+    'version 3.5.0  : deep refine Filtration, RELEASE',
+    'version 3.6.0  : add class PlotSamples',
+    'version 3.7.0  : add subcommand plot, RELEASE',
 ]
 
 
@@ -2507,12 +2508,18 @@ class PlotSamples(BulkProcess):
         super().__init__(*args,**kwargs)
 
         self.probdatafilelist = []
-        for f in probdatafilelist:
-            if os.path.isfile(f):
-                self.probdatafilelist.append(f)
-            else:
-                print('Warning: not a probability data file < {:} >, ignoring'.format(f))
+        if probdatafilelist is not None:
+            for f in probdatafilelist:
+                if os.path.isfile(f):
+                    self.probdatafilelist.append(f)
+                else:
+                    print('Warning: not probability data file < {:} >, ignoring'.format(f))
 
+        if 'userinputs' in kwargs and kwargs['userinputs']:
+            if startndx is not None: startndx -= 1
+            if endndx is not None: endndx -= 1
+
+        # assume data has been properly processed, index starts at 0
         self.nmsamples = nmsamples
         self.startndx = startndx
         self.endndx = endndx
@@ -2528,7 +2535,9 @@ class PlotSamples(BulkProcess):
         bo = self.nice
         tot = len(self.allsystems)
         self.choices = []
-        if isinstance(nmlist,list):
+        if nmlist is None:
+            pass
+        elif isinstance(nmlist,list):
             for i in nmlist:
                 if not isinstance(i,int):
                     bo = False
@@ -2541,7 +2550,7 @@ class PlotSamples(BulkProcess):
         else:
             bo = False
             if nmlist is None: print('Fatal: wrong defined: nmlist')
-        if bo:
+        if bo and nmlist is not None:
             bo = False
             for i in nmlist:
                 self.choices.append(random.sample(self.allsystems,i))
@@ -2582,11 +2591,17 @@ class PlotSamples(BulkProcess):
                 for i in range(nmsamples):
                     self.choices.append(random.sample(samples,t))
             else:
-                dt = incndx
+                dt = random.randrange(nmranges)
                 while dt < tot:
-                    tmp = random.randrange(nmranges)
-                    self.choices.append(samples[dt-incndx:dt])
+                    while True:
+                        tmp = random.randrange(nmranges) * random.choice([-1,0,1])
+                        if incndx + tmp > 0: break
+                    if dt + incndx + tmp > 0: break
+                    self.choices.append(samples[dt:dt+incndx+tmp])
                     dt += incndx + tmp
+            # to avoid waste of time,
+            # only number of samples bigger than 10 will be kept
+            self.choices = [i for i in self.choices if len(i) > 10]
 
 
 
@@ -3009,8 +3024,8 @@ def parsecmd():
         action='store_true',
     )
     parser.add_argument(
-        '-u','--userinputs',
-        help='specify it when input connections and fragments start at 1',
+        '-nu','--no-userinputs',
+        help='specify the indexes of input connections start at 0',
         action='store_true',
     )
     parser.add_argument(
@@ -3021,18 +3036,82 @@ def parsecmd():
         '-ft','--ftype',
         help='Output system file type, [txt, xsf, xyz]',
     )
+    subparser = parser.add_subparsers(title='continuous subcommand')
+    sub = subparser.add_parser(
+        'plot',
+        help='plot cross comparsions based on different chosen samples',
+        allow_abbrev=False
+    )
+    sub.set_defaults(command='plot')
+    sub.add_argument(
+        '-bf','--probdatafilelist',
+        help='bulk process probability files',
+        metavar='B',
+        nargs='+',
+    )
+    sub.add_argument(
+        '-nl','--nmlist',
+        help='highest priority, select number of samples for plot, (optional)',
+        metavar='n',
+        nargs='+',
+        type=int,
+    )
+    sub.add_argument(
+        '-ns','--nmsamples',
+        help='choose number of samples for plot, default is 5',
+        metavar='n',
+        type=int,
+    )
+    sub.add_argument(
+        '-sn','--startndx',
+        help='start index for the inputs, (optional)',
+        metavar='n',
+        type=int,
+    )
+    sub.add_argument(
+        '-en','--endndx',
+        help='end index for the inputs, (optional)',
+        metavar='n',
+        type=int,
+    )
+    sub.add_argument(
+        '-inc','--incndx',
+        help='increments for choose, (optional)',
+        metavar='n',
+        type=int,
+    )
+    sub.add_argument(
+        '-nr','--nmranges',
+        help='random ranges for increments, (optional)',
+        metavar='n',
+        type=int,
+    )
 
-    if len(sys.argv) == 1:
+    # annoying part
+    bo = False
+    if len(sys.argv) == 1: bo = True
+    if not bo and 'plot' not in sys.argv:
+        if '-h' in sys.argv or '--help' in sys.argv: bo = True
+    if bo:
         parser.print_help()
         exit()
 
-    args = parser.parse_args(sys.argv[1:])
-    if args.features:
+    # due to the potential bug, args may not have enough namespace
+    args,left = sub.parse_known_args()
+    if 'plot' in left:
+        left.remove('plot')
+        opts = parser.parse_args(left)
+        # conclude them
+        args = argparse.Namespace(**vars(opts),**vars(args))
+    else:
+        args = parser.parse_args(sys.argv[1:])
+
+    if 'features' in args and args.features:
         for i in FEATURES:
             print(i)
         exit()
 
-    if args.file_format_explanations:
+    if 'file_format_explanations' in args and args.file_format_explanations:
         print(FILEFORMAT)
         exit()
 
@@ -3050,45 +3129,79 @@ def parsecmd():
         'oapar'                     :   False,
         'fragments'                 :   None,
         'bool_force_double_check'   :   True,
-        'userinputs'                :   None,
+        'userinputs'                :   True,
         'fname'                     :   None,
         'ftype'                     :   None,
+        'probdatafilelist'          :   None,
+        'nmlist'                    :   None,
+        'nmsamples'                 :   None,
+        'startndx'                  :   None,
+        'endndx'                    :   None,
+        'incndx'                    :   None,
+        'nmranges'                  :   None,
     }
-    if args.datafilelist is None:
-        print('Warning: -f/--datafilelist is missing')
-        exit()
 
-    stmp = parse_remove_chars(' '.join(args.datafilelist)).replace(',',' ')
-    fdict['datafilelist'] = stmp.split()
+    bod = False
+    if 'datafilelist' in args and args.datafilelist is not None:
+        if len(args.datafilelist) != 0: bod = True
+    bog = False
+    if 'probdatafilelist' in args and args.probdatafilelist is not None:
+        if len(args.probdatafilelist) != 0: bog = True
+    if 'command' in args:
+        if not bod and not bog:
+            print('Fatal: no input: missing:  -f/--datafilelist or -bf/--probdatafilelist')
+            exit()
+    else:
+        if not bod:
+            print('Warning: -f/--datafilelist is missing')
+            exit()
+    
+    if bod:
+        stmp = parse_remove_chars(' '.join(args.datafilelist)).replace(',',' ')
+        fdict['datafilelist'] = stmp.split()
+    
+    if bog:
+        stmp = parse_remove_chars(' '.join(args.probdatafilelist)).replace(',',' ')
+        fdict['probdatafilelist'] = stmp.split()
 
-    if args.indexfilelist:
+    if 'indexfilelist' in args and args.indexfilelist:
         stmp = parse_remove_chars(' '.join(args.indexfilelist)).replace(',',' ')
         fdict['indexfilelist'] = stmp.split()
 
-    if args.bcon:
+    if 'bcon' in args and args.bcon:
         fdict['bcon'] = parse_in_line(' '.join(args.bcon),bobcon=True)
-    if args.acon:
+    if 'acon' in args and args.acon:
         fdict['acon'] = parse_in_line(' '.join(args.acon),boacon=True)
-    if args.fragments:
+    if 'fragments' in args and args.fragments:
         fdict['fragments'] = parse_in_line(' '.join(args.fragments))
 
-    if args.btol: fdict['btol'] = args.btol
-    if args.atol: fdict['atol'] = args.atol
-    if args.no_oball: fdict['oball'] = False
-    if args.obpar: fdict['obpar'] = True
-    if args.no_oaall: fdict['oaall'] = False
-    if args.oapar: fdict['oapar'] = True
-    if args.no_force_double_check: fdict['bool_force_double_check'] = False
-    if args.userinputs: fdict['userinputs'] = True
-    if args.fname: fdict['fname'] = args.fname
-    if args.ftype: fdict['ftype'] = args.ftype
+    if 'btol' in args and args.btol: fdict['btol'] = args.btol
+    if 'atol' in args and args.atol: fdict['atol'] = args.atol
+    if 'oball' in args and args.no_oball: fdict['oball'] = False
+    if 'obpar' in args and args.obpar: fdict['obpar'] = True
+    if 'oaall' in args and args.no_oaall: fdict['oaall'] = False
+    if 'oapar' in args and args.oapar: fdict['oapar'] = True
+    if 'bool_force_double_check' in args and args.no_force_double_check:
+        fdict['bool_force_double_check'] = False
+    if 'userinputs' in args and args.no_userinputs: fdict['userinputs'] = False
+    if 'fname' in args and args.fname: fdict['fname'] = args.fname
+    if 'ftype' in args and args.ftype: fdict['ftype'] = args.ftype
+    if 'nmlist' in args and args.nmlist: fdict['nmlist'] = args.nmlist
+    if 'nmsamples' in args and args.nmsamples: fdict['nmsamples'] = args.nmsamples
+    if 'startndx' in args and args.startndx: fdict['startndx'] = args.startndx
+    if 'endndx' in args and args.endndx: fdict['endndx'] = args.endndx
+    if 'incndx' in args and args.incndx: fdict['incndx'] = args.incndx
+    if 'nmranges' in args and args.nmranges: fdict['nmranges'] = args.nmranges
 
-    BP = BulkProcess(**fdict)
-    if not BP.nice:
-        print(BP.info)
+    if 'command' in args:
+        PS = PlotSamples(**fdict)
+    else:
+        PS = BulkProcess(**fdict)
+    if not PS.nice:
+        print(PS.info)
         return
-    BP.run()
-    if not BP.nice: print(BP.info)
+    PS.run()
+    if not PS.nice: print(PS.info)
 
 
 
