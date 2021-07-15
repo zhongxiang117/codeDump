@@ -60,6 +60,8 @@ FEATURES = [
     'version 3.5.0  : deep refine Filtration, RELEASE',
     'version 3.6.0  : add class PlotSamples',
     'version 3.7.0  : add subcommand plot, RELEASE',
+    'version 3.7.1  : small fix on userinputs',
+    'version 3.8.0  : add plot random seed',
 ]
 
 
@@ -2121,9 +2123,13 @@ class BulkProcess:
         self.overall_energy = []
         self.overall_system = []
         totreflist =  list(range(len(allkeeps)))
-        totreflist.extend(mf.reflist)
+        totreflist = sorted([*totreflist,*mf.reflist])
+        totreflist.append(-1)
+        ndx = 0
         for i,v in enumerate(allenergy):
-            if i not in totreflist:
+            if i == totreflist[ndx]:
+                ndx += 1
+            else:
                 self.overall_energy.append(v)
                 self.overall_system.append(allsystem[i])
 
@@ -2368,6 +2374,7 @@ class BulkProcess:
 
         # take care of special case, when input is None
         if 'bcon' in self.kwargs and self.kwargs['bcon'] is not None:
+            tmpbcon = self.kwargs['bcon']
             if isinstance(self.kwargs['bcon'],list):
                 self.kwargs['bcon'] = self.check_user_input_connections(
                     self.kwargs['bcon'],
@@ -2375,7 +2382,6 @@ class BulkProcess:
                     self.kwargs['userinputs']
                 )
             elif isinstance(self.kwargs['bcon'],str):
-                tmpbcon = self.kwargs['bcon']
                 contmp = tmpbcon.lower()
                 if 'no' in contmp or 'non' in contmp or 'none' in contmp:
                     self.kwargs['bcon'] = []
@@ -2384,11 +2390,10 @@ class BulkProcess:
                 else:
                     self.kwargs['bcon'] = False
             else:
-                tmpbcon = self.kwargs['bcon']
                 self.kwargs['bcon'] = False
             if self.kwargs['bcon'] is False:
                 self.nice = False
-                self.info = 'Fatal: wrong defined: bcon: {:}'.format(tmpbcon)
+                self.info += '\nFatal: wrong defined: bcon: {:}'.format(tmpbcon)
                 return
         elif bog:
             self.kwargs['bcon'] = fbcon
@@ -2503,7 +2508,7 @@ class BulkProcess:
 
 class PlotSamples(BulkProcess):
     def __init__(self,probdatafilelist=None,nmsamples=None,nmlist=None,
-                startndx=None,endndx=None,incndx=None,nmranges=None,
+                startndx=None,endndx=None,incndx=None,nmranges=None,seed=None,
                 *args,**kwargs):
         super().__init__(*args,**kwargs)
 
@@ -2518,6 +2523,9 @@ class PlotSamples(BulkProcess):
         if 'userinputs' in kwargs and kwargs['userinputs']:
             if startndx is not None: startndx -= 1
             if endndx is not None: endndx -= 1
+        
+        self.seed = seed if seed else random.randrange(100000000)
+        random.seed(self.seed)
 
         # assume data has been properly processed, index starts at 0
         self.nmsamples = nmsamples
@@ -3086,6 +3094,12 @@ def parsecmd():
         metavar='n',
         type=int,
     )
+    sub.add_argument(
+        '-seed','--seed',
+        help='random seed, (optional)',
+        metavar='n',
+        type=int,
+    )
 
     # annoying part
     bo = False
@@ -3139,6 +3153,7 @@ def parsecmd():
         'endndx'                    :   None,
         'incndx'                    :   None,
         'nmranges'                  :   None,
+        'seed'                      :   None,
     }
 
     bod = False
@@ -3183,7 +3198,7 @@ def parsecmd():
     if 'oapar' in args and args.oapar: fdict['oapar'] = True
     if 'bool_force_double_check' in args and args.no_force_double_check:
         fdict['bool_force_double_check'] = False
-    if 'userinputs' in args and args.no_userinputs: fdict['userinputs'] = False
+    if 'no_userinputs' in args and args.no_userinputs: fdict['userinputs'] = False
     if 'fname' in args and args.fname: fdict['fname'] = args.fname
     if 'ftype' in args and args.ftype: fdict['ftype'] = args.ftype
     if 'nmlist' in args and args.nmlist: fdict['nmlist'] = args.nmlist
@@ -3192,6 +3207,7 @@ def parsecmd():
     if 'endndx' in args and args.endndx: fdict['endndx'] = args.endndx
     if 'incndx' in args and args.incndx: fdict['incndx'] = args.incndx
     if 'nmranges' in args and args.nmranges: fdict['nmranges'] = args.nmranges
+    if 'seed' in args and args.seed: fdict['seed'] = args.seed
 
     if 'command' in args:
         PS = PlotSamples(**fdict)
