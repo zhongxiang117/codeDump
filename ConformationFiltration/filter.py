@@ -62,11 +62,10 @@ FEATURES = [
     'version 3.7.0  : add subcommand plot, RELEASE',
     'version 3.7.1  : small fix on userinputs',
     'version 3.8.0  : add plot random seed',
+    'version 3.9.0  : add dynamic and static method in Filtration',
 ]
 
-
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
-
 
 FILEFORMAT = """
 Input File Format for BOSS Output Filtration
@@ -285,7 +284,6 @@ class AtomInfo:
         Uus,117,,,Ununseptium
         Uuo,118,,,Ununoctium"""
 
-
     def __init__(self):
         self.atominfo = []
         for line in self.ATOM_PROPERTY.split('\n')[1:]:
@@ -340,8 +338,6 @@ class ReadFile:
 
         self.debug = True if debug is True else False
 
-
-
     def run(self):
         """process input file
 
@@ -357,7 +353,7 @@ class ReadFile:
         self.energy = []
 
         prolist,enelist,errlist = getattr(self,'read_'+self.ext)()
-        if len(prolist) <= 0: return
+        if not len(prolist): return
 
         if self.debug:
             for i in errlist:
@@ -419,8 +415,6 @@ class ReadFile:
                 for j in i[1]: print(j)
                 print()
 
-
-
     def read_xsf(self):
         with open(self.file,mode='rt') as f:
             profile = f.readlines()
@@ -436,7 +430,7 @@ class ReadFile:
                     sub = profile[j]
                     if sub.find('#') != -1: break
                     sub = sub.strip()
-                    if len(sub) != 0: ls.append([sub,j])
+                    if not len(sub): ls.append([sub,j])
                     j += 1
                 promol.append(ls)
                 i = j
@@ -500,8 +494,6 @@ class ReadFile:
 
         return prolist, enelist, errlist
 
-
-
     def read_txt(self):
         with open(self.file,mode='rt') as f:
             profile = f.readlines()
@@ -511,15 +503,15 @@ class ReadFile:
         mol = []
         for cnt,line in enumerate(profile):
             sub = line.strip()
-            if len(sub) == 0:
-                if len(mol) == 0: continue
+            if not len(sub):
+                if not len(mol): continue
                 promol.append(mol)
                 # initialize
                 mol = []
             else:
                 mol.append([sub,cnt])
         # last mol
-        if len(mol) != 0: promol.append(mol)
+        if len(mol): promol.append(mol)
 
         prolist = []
         enelist = []
@@ -563,8 +555,6 @@ class ReadFile:
 
         return prolist, enelist, errlist
 
-
-
     def read_xyz(self):
         with open(self.file,mode='rt') as f:
             profile = f.readlines()
@@ -574,15 +564,15 @@ class ReadFile:
         mol = []
         for cnt,line in enumerate(profile):
             sub = line.strip()
-            if len(sub) == 0:
-                if len(mol) == 0: continue
+            if not len(sub):
+                if not len(mol): continue
                 promol.append(mol)
                 # initialize
                 mol = []
             else:
                 mol.append([sub,cnt])
         # last mol
-        if len(mol) != 0: promol.append(mol)
+        if len(mol): promol.append(mol)
 
         prolist = []
         enelist = []
@@ -639,8 +629,6 @@ class ReadFile:
         return prolist, enelist, errlist
 
 
-
-
 class SaveFile:
     """opposite operation to ReadFile
 
@@ -664,7 +652,7 @@ class SaveFile:
         self.system = system if isinstance(system,list) else []
         self.energy = energy if energy is not None and isinstance(energy,list) else []
 
-        if len(self.system) == 0:
+        if not len(self.system):
             self.nice = False
             self.info = 'Fatal: no inputs'
             return
@@ -723,18 +711,14 @@ class SaveFile:
                 ls.append(atype)
             self.atypelist.append(ls)
 
-
-
     def run(self):
         fout = getattr(self,'save_'+self.ftype)()
         with open(self.fname,'wt') as f: f.write(fout)
 
-
-
     def save_xsf(self):
         fout = ''
         for ndx,mol in enumerate(self.system):
-            if len(self.energy) != 0 and self.energy[ndx] is not None:
+            if len(self.energy) and self.energy[ndx] is not None:
                 fout += '# {:}\n\nATOMS\n'.format(self.energy[ndx])
             else:
                 fout += '#\n\nATOMS\n'
@@ -744,12 +728,10 @@ class SaveFile:
             fout += '\n\n'
         return fout
 
-
-
     def save_txt(self):
         fout = ''
         for ndx,mol in enumerate(self.system):
-            if len(self.energy) != 0 and self.energy[ndx] is not None:
+            if len(self.energy) and self.energy[ndx] is not None:
                 fout += '#  {:}\n'.format(self.energy[ndx])
             for cnt,at in enumerate(mol):
                 atype = self.atypelist[ndx][cnt]
@@ -757,13 +739,11 @@ class SaveFile:
             fout += '\n\n'
         return fout
 
-
-
     def save_xyz(self):
         fout = ''
         for ndx,mol in enumerate(self.system):
             fout += '{:}\n'.format(len(mol))
-            if len(self.energy) != 0 and self.energy[ndx] is not None:
+            if len(self.energy) and self.energy[ndx] is not None:
                 fout += 'Properties=species:S:1:pos:R:3 energy={:}\n'.format(self.energy[ndx])
             else:
                 fout += 'Properties=species:S:1:pos:R:3 energy=0.0\n'
@@ -772,8 +752,6 @@ class SaveFile:
                 fout += '{:2} {:>12} {:>12} {:>12}\n'.format(atype,*at[1:])
             fout += '\n\n'
         return fout
-
-
 
 
 def test_class_ReadFile_and_SaveFile():
@@ -861,8 +839,6 @@ def test_class_ReadFile_and_SaveFile():
     sf2.run()
 
 
-
-
 class BondPerception:
     """Bond connecting perception
 
@@ -918,8 +894,6 @@ class BondPerception:
                 return
             self.atradius.append(r)
 
-
-
     def run(self):
         self.conb, self.bcon, self.nconb = self.calc_bcons(self.system,self.atradius)
 
@@ -954,8 +928,6 @@ class BondPerception:
             self.fnconb = [[i+1 for i in t] for t in self.fnconb]
             self.cfnconb = [[i+1 for i in t] for t in self.cfnconb]
 
-
-
     def calc_bcons(self,system,atradius,reflist=None):
         con = []
         bcon = []
@@ -979,8 +951,6 @@ class BondPerception:
                     con.append([i,j])
                 j += 1
         return con, bcon, nconb
-
-
 
     def calc_bfs(self,bcon,tot=None):
         """Breadth First Search to calculate 2D collections
@@ -1016,8 +986,6 @@ class BondPerception:
         return bfs
 
 
-
-
 class AnglePerception(BondPerception):
     """
     Attributes: (new)
@@ -1032,8 +1000,6 @@ class AnglePerception(BondPerception):
     def __init__(self,system,*args,**kwargs):
         super().__init__(system,*args,**kwargs)
         if not self.nice: return
-
-
 
     def run(self):
         super().run()
@@ -1143,8 +1109,6 @@ class AnglePerception(BondPerception):
             self.cfnacon = [[i+1 for i in j] for j in self.cfnacon]
             self.cfncona = [[i+1 for i in j] for j in self.cfncona]
 
-
-
     def calc_conas(self,nlist):
         """calc all angles connections based on given list
         Args:
@@ -1177,8 +1141,6 @@ class AnglePerception(BondPerception):
                 j += 1
             i += 1
         return cona
-
-
 
     def calc_acons(self,bcon):
         if len(bcon) < 2: return []
@@ -1216,8 +1178,6 @@ class AnglePerception(BondPerception):
         return acon
 
 
-
-
 def test_class_Perception():
     def checkrepeats(mylist):
         for i,ref in enumerate(mylist):
@@ -1233,7 +1193,6 @@ def test_class_Perception():
             if bo:
                 return True
         return False
-
 
     def checklist(totlist,sublist,adjlist=None):
         """
@@ -1294,7 +1253,6 @@ def test_class_Perception():
             return None
         return True
 
-
     def checkobj(obj,info='mol'):
         errinfo = 'Error: {:}:'.format(info)
         print('Note: {:}: fragments='.format(info),obj.fragments)
@@ -1324,7 +1282,6 @@ def test_class_Perception():
                     print(errinfo,'-2-: ncona ?? fncona + cfncona')
         if checklist(obj.fcona, obj.acon, obj.fncona) == False:
             print(errinfo,'fcona < acon + fncona')
-
 
 
     amol = [
@@ -1422,8 +1379,6 @@ def test_class_Perception():
     checkobj(mf,'dmol')
 
 
-
-
 class Filtration:
     """Filter molecules based on bonds & angles connections
 
@@ -1468,7 +1423,8 @@ class Filtration:
             thus, when doing filtration, please take care of btol & atol.
     """
     def __init__(self,system=None,keepndxlist=None,userinputs=None,
-                bcon=None,acon=None,btol=None,atol=None,
+                bcon=None,acon=None,btol=None,atol=None,seed=None,
+                mode=None,vndx=None,borandom=None,boall=None,
                 obpar=None,oball=None,oapar=None,oaall=None,
                 *args,**kwargs):
         self.system = system
@@ -1479,6 +1435,14 @@ class Filtration:
         self.acon = [] if acon is None else acon
         self.btol = 0.1 if btol is None else btol   # Angstrom
         self.atol = 0.1 if atol is None else atol   # degree
+
+        self.seed = seed if seed else random.randrange(100000000)
+        random.seed(self.seed)
+
+        self.mode = mode
+        self.vndx = vndx
+        self.borandom = borandom
+        self.boall = boall
 
         self.obpar = True if obpar is True else False
         self.oball = False if oball is False else True
@@ -1492,8 +1456,6 @@ class Filtration:
         self.prob_begin = {'bpar':[], 'ball':[], 'apar':[], 'aall':[]}
         self.prob_final = {'bpar':[], 'ball':[], 'apar':[], 'aall':[]}
 
-
-
     def run(self):
         """attemption on filtering
         """
@@ -1506,6 +1468,7 @@ class Filtration:
         ainc = self.atol
 
         if self.keepndxlist is None: self.keepndxlist = []
+        # important, increase efficiency
         self.keepndxlist = sorted(self.keepndxlist)
 
         if self.obpar or self.oball:
@@ -1515,36 +1478,41 @@ class Filtration:
             print('Note: calculating begin angles probability ...')
             self.prob_begin['apar'], self.prob_begin['aall'] = self.calc_probs(anglelist,ainc,self.oapar,self.oaall)
 
-        self.reflist = self.calc_filterlists(bondlist,anglelist,binc,ainc,self.keepndxlist)
-        self.reflist.append(-1)
-
+        self.reflist = self.calc_filterlists(bondlist,anglelist,binc,ainc,mode=self.mode,vndx=self.vndx,
+                                            borandom=self.borandom,boall=self.boall,keepndxlist=self.keepndxlist)
+        
         print('Note: updating ...')
         tmpsys = []
         self.bondlist = []
         self.anglelist = []
         self.sysbad = []
         cnt = 0
+        trn = 0
+        self.reflist.append(-1)
+        self.keepndxlist.append(-1)
         for ndx in range(len(self.system)):
             if ndx == self.reflist[cnt]:
                 cnt += 1
                 self.sysbad.append(self.system[ndx])
             else:
-                if ndx not in self.keepndxlist:
+                if ndx == self.keepndxlist[trn]:
+                    trn += 1
+                else:
                     tmpsys.append(self.system[ndx])
-                    self.bondlist.append(bondlist[ndx])
-                    self.anglelist.append(anglelist[ndx])
+                    if len(bondlist): self.bondlist.append(bondlist[ndx])
+                    if len(anglelist): self.anglelist.append(anglelist[ndx])
+        self.fratio = 1.0 - len(tmpsys)/len(self.system)
         # alias
         self.system = tmpsys
-        self.reflist.remove(-1)
-
+        self.reflist.pop(len(self.reflist)-1)
+        self.keepndxlist.pop(len(self.keepndxlist)-1)
+        
         if self.obpar or self.oball:
             print('Note: calculating final bonds probability ...')
             self.prob_final['bpar'], self.prob_final['ball'] = self.calc_probs(self.bondlist,binc,self.obpar,self.oball)
         if self.oapar or self.oaall:
             print('Note: calculating final angles probability ...')
             self.prob_final['apar'], self.prob_final['aall'] = self.calc_probs(self.anglelist,ainc,self.oapar,self.oaall)
-
-
 
     def calc_probs(self,datalist,dt,opar=None,oall=None):
         """
@@ -1606,7 +1574,8 @@ class Filtration:
             stls = sorted(ls)
             rmin = stls[0]
             steps = (stls[-1] - rmin) / dt
-            steps = int(steps)
+            # for round-of-errors
+            steps = int(steps) + 1
             # all on same values
             if steps <= 2:
                 return [len(ls)],rmin
@@ -1616,8 +1585,8 @@ class Filtration:
                 high = rmin + v*dt
                 for n,t in enumerate(stls[ndx:]):
                     if t >= high:
-                        prolist.append(n+1)
-                        ndx += n + 1
+                        prolist.append(n)
+                        ndx += n
                         break
             return prolist,rmin
 
@@ -1630,7 +1599,6 @@ class Filtration:
                 ls = [t[cnt] for t in datalist]
                 p = calc_list(ls,dt)
                 prob_par.append(p)
-
         prob_all = []
         if oall:
             print('    --> computing on system ...')
@@ -1638,12 +1606,10 @@ class Filtration:
             #sub = [sum(i)/len(i) for i in datalist]
             sub = [sum(i) for i in datalist]
             prob_all = calc_list(sub,dt*len(datalist[0]))
-
         return prob_par, prob_all
 
-
-
-    def calc_filterlists(self,bondlist,anglelist,binc,ainc,keepndxlist=None):
+    def calc_filterlists(self,bondlist,anglelist,binc,ainc,mode=None,vndx=None,
+                        borandom=None,boall=None,keepndxlist=None):
         """
         Rule:
             Since the variance is only based on the single movement,
@@ -1655,64 +1621,204 @@ class Filtration:
         Return:
             reflist  :  List[int]  :  index of molecules waiting to be removed
         """
-        if len(bondlist) <= 3: return []
-        # conclude
-        bal = [sum(v)+sum(anglelist[i]) for i,v in enumerate(bondlist)]
-        inc = binc + ainc
-        if max(bal) - min(bal) < inc: return []
-        # This part does is to recursively remove index, whose difference
-        # separately with two adjacent values is smaller than tolerance
-        #
-        # for example, we have inputs like;
-        #
-        #   bal      = [0.0, 0.1, 0.15, 0.18, 0.19, 0.20, 0.3, 0.4, 0.43, 0.5]
-        # ndxlist    =   0    1    2     3     4     5     6    7    8     9
-        #
-        # inc = 0.1
-        #
-        # then we will know if we remove index in [2,3,4,8], the new array
-        # balnew = [0.0, 0.1, 0.20, 0.3, 0.4, 0.5] will meet the requirement
+        if len(bondlist) <= 3 and len(anglelist) <= 3: return []
+        bl = [sum(i) for i in bondlist]
+        al = [sum(i) for i in anglelist]
+        if mode is None or mode.lower() in ['dynamic','d']:
+            if boall:
+                return self._calc_filterlists_all_dynamic(bl,al,binc,ainc,keepndxlist)
+            # dynamic-separate on bondlist
+            reflist = self._calc_filterlists_sep_dynamic(bl,al,binc,ainc,keepndxlist)
+            # dynamic-separate on anglelist
+            reflist.append(-1)
+            cnt = 0
+            trn = 0
+            mybl = []
+            myal = []
+            ndxlist = []
+            # caution! do not modify original reference
+            tmpkeep = [i for i in keepndxlist]
+            tmpkeep.append(len(bl)+10)
+            for i in range(len(bl)):
+                if i == reflist[cnt]:
+                    cnt += 1
+                    # update tmpkeep due to remove of reflist
+                    if i < tmpkeep[trn]:
+                        for k in range(trn,len(tmpkeep)):
+                            tmpkeep[k] -= 1
+                    else:
+                        trn += 1
+                else:
+                    mybl.append(bl[i])
+                    myal.append(al[i])
+                    ndxlist.append(i)
+            reflist.pop(len(reflist)-1)
+            tmplist = self._calc_filterlists_sep_dynamic(myal,mybl,ainc,binc,tmpkeep)
+            reflist.extend([ndxlist[i] for i in tmplist])
+            return sorted(reflist)
+        return self._calc_filterlists_static(bl,al,binc,ainc,keepndxlist,vndx,borandom)
 
-        # sort by index
-        # Caution: for future debug, bal is not sorted
-        ndxlist = sorted(range(len(bal)),key=lambda k: bal[k])
-        badel = [bal[j] - bal[ndxlist[i]] for i,j in enumerate(ndxlist[1:])]
+    def _calc_filterlists_all_dynamic(self,bl,al,binc,ainc,keepndxlist):
+        """This part does is to recursively remove index, whose difference
+           separately with two adjacent values is smaller than tolerance
+        
+        for example, we have inputs like;
+        
+          bal      = [0.0, 0.1, 0.15, 0.18, 0.19, 0.20, 0.3, 0.4, 0.43, 0.5]
+        ndxlist    =   0    1    2     3     4     5     6    7    8     9
+        
+        inc = 0.1
+        
+        then we will know if we remove index in [2,3,4,8], the new array
+        balnew = [0.0, 0.1, 0.20, 0.3, 0.4, 0.5] will meet the requirement
 
+        sort by index
+        Caution: for future debug, bal is not sorted"""
+        # make a deep copy of keepndxlist
+        if keepndxlist is None: keepndxlist = []
+        keepndxlist = [i for i in keepndxlist]
+        keepndxlist.append(-1)
+        
+        if not len(bl) or not len(al):
+            if not len(bl):
+                bal = al
+                inc = ainc
+            else:
+                bal = bl
+                inc = binc
+        else:
+            bal = [v+al[i] for i,v in enumerate(bl)]
+            inc = binc + ainc
+        nlist = sorted(range(len(bal)),key=lambda k: bal[k])
+        mdel = [bal[j] - bal[nlist[i]] for i,j in enumerate(nlist[1:])]
+
+        reflist = []
+        ndx = 0
+        cnt = 0
+        while ndx < len(mdel):
+            if mdel[ndx] < inc:
+                v1 = nlist.pop(ndx+1)
+                if v1 == keepndxlist[cnt]:
+                    cnt += 1
+                    if ndx >= len(mdel)-1: break
+                    # be aware in here, nlist has been processed
+                    v2 = nlist[ndx+1]
+                    mdel.pop(ndx)
+                    mdel[ndx] = bal[v2] - bal[v1]
+                else:
+                    reflist.append(v1)
+                    if ndx >= len(mdel)-1: break
+                    dt = mdel.pop(ndx+1)
+                    mdel[ndx] += dt
+            else:
+                ndx += 1
+        # reflist has to be sorted from smaller to bigger for following refinement
+        return sorted(reflist)
+    
+    def _calc_filterlists_sep_dynamic(self,bl,al,binc,ainc,keepndxlist):
+        if not len(bl) or not len(al):
+            return self._calc_filterlists_all_dynamic(bl,al,binc,ainc,keepndxlist)
+        
         # make a deep copy of keepndxlist
         if keepndxlist is None: keepndxlist = []
         keepndxlist = [i for i in keepndxlist]
         keepndxlist.append(-1)
 
+        nlist = sorted(range(len(bl)),key=lambda k: bl[k])
+        mdel = [bl[j] - bl[nlist[i]] for i,j in enumerate(nlist[1:])]
         reflist = []
         ndx = 0
         cnt = 0
-        while ndx < len(badel):
-            if badel[ndx] < inc:
-                v = ndxlist.pop(ndx+1)
-                if v == keepndxlist[cnt]:
-                    cnt += 1
-                    if ndx >= len(badel)-1: break
-                    # be aware in here, ndxlist has been processed
-                    v2 = ndxlist[ndx+1]
-                    badel.pop(ndx)
-                    badel[ndx] = bal[v2] - bal[v]
+        while ndx < len(mdel):
+            if mdel[ndx] < binc:
+                v0 = nlist[ndx]
+                v1 = nlist[ndx+1]
+                # be aware of negative value
+                if abs(al[v1]-al[v0]) < ainc:
+                    nlist.pop(ndx+1)
+                    if v1 == keepndxlist[cnt]:
+                        cnt += 1
+                        if ndx >= len(mdel)-1: break
+                        v2 = nlist[ndx+1]
+                        mdel.pop(ndx)
+                        mdel[ndx] = bl[v2] - bl[v1]
+                    else:
+                        reflist.append(v1)
+                        if ndx >= len(mdel)-1: break
+                        dt = mdel.pop(ndx+1)
+                        mdel[ndx] += dt
                 else:
-                    reflist.append(v)
-                    if ndx >= len(badel)-1: break
-                    dt = badel.pop(ndx+1)
-                    badel[ndx] += dt
+                    ndx += 1
             else:
                 ndx += 1
-        # reflist has to be sorted from smaller to bigger for following refinement
         return sorted(reflist)
 
+    def _calc_filterlists_static(self,bl,al,binc,ainc,keepndxlist,vndx=None,borandom=None):
+        # make a deep copy of keepndxlist
+        if keepndxlist is None: keepndxlist = []
+        keepndxlist = [i for i in keepndxlist]
 
+        if not len(bl) or not len(al):
+            if not len(bl):
+                bal = al
+                inc = ainc
+            else:
+                bal = bl
+                inc = binc
+        else:
+            bal = [v+al[i] for i,v in enumerate(bl)]
+            inc = binc + ainc
+
+        nlist = sorted(range(len(bal)),key=lambda k: bal[k])
+        vlist = [bal[i] for i in nlist]
+
+        # always make vndx one-inc less than smallest value
+        if vndx is None:
+            vndx = vlist[0]
+        elif vndx > vlist[0]:
+            while vndx > vlist[0]:
+                vndx -= inc
+        else:
+            while vndx < vlist[0]:
+                vndx += inc
+            vndx -= inc
+        
+        reflist = []
+        cnt = 0
+        n = int((vlist[-1]-vndx)/inc) + 1
+        tot = len(vlist)
+        for i in range(1,n):
+            t = vndx + i*inc
+            ls = []
+            while cnt < tot:
+                if vlist[cnt] >= t: break
+                ls.append(nlist[cnt])
+                cnt += 1
+            if len(ls):
+                bo = False
+                # important, increase efficiency
+                if len(keepndxlist):
+                    for k in ls:
+                        if k in keepndxlist:
+                            bo = True
+                            keepndxlist.remove(k)
+                if bo:
+                    reflist.extend(ls)
+                elif len(ls) >= 2:
+                    if borandom:
+                        x = random.randrange(len(ls))
+                        ls.pop(x)
+                        reflist.extend(ls)
+                    else:
+                        reflist.extend(ls[1:])
+        return sorted(reflist)
 
     def calc_square_distance(self,system,bcon):
         """
         Return:
             bondlist : 2D : System[Mol[l1,l2, ...], ...] : List[List[float]]
         """
+        if not len(bcon): return []
         bondlist = []
         for mol in system:
             ls = []
@@ -1726,8 +1832,6 @@ class Filtration:
                 ls.append(tmp)
             bondlist.append(ls)
         return bondlist
-
-
 
     def calc_angle_degree(self,system,acon):
         """
@@ -1750,6 +1854,7 @@ class Filtration:
         Return:
             anglelist : 2D : System[Mol[l1,l2, ...], ...] : List[List[float]]
         """
+        if not len(acon): return []
         anglelist = []
         cvt = 180.0 / math.pi
         for mol in system:
@@ -1768,9 +1873,7 @@ class Filtration:
         return anglelist
 
 
-
-
-def test_class_Filtration():
+def test_class_Filtration_dynamic():
     """
     Be aware of the testing data file is used
     """
@@ -1802,6 +1905,8 @@ def test_class_Filtration():
         s = random.sample(ltmp,k=3)
         st = sorted(s)
         if st not in acon: acon.append(st)
+    
+    # dynamic-separate
     fd = {
         'system'    :   rf.system,
         'userinputs':   False,
@@ -1813,15 +1918,164 @@ def test_class_Filtration():
 
     rawbondlist = fn.calc_square_distance(rf.system,fn.bcon)
     rawanglelist = fn.calc_angle_degree(rf.system,fn.acon)
-
     probondlist = [v for i,v in enumerate(rawbondlist) if i not in fn.reflist]
     proanglelist = [v for i,v in enumerate(rawanglelist) if i not in fn.reflist]
+    assert checkequal(probondlist, fn.bondlist)
+    assert checkequal(proanglelist, fn.anglelist)
 
+    bl = [sum(i) for i in probondlist]
+    al = [sum(i) for i in proanglelist]
+    nl = sorted(range(len(bl)),key=lambda k: bl[k])
+    stbl = [bl[i] for i in nl]
+    dtbl = [v-stbl[i] for i,v in enumerate(stbl[1:])]
+    bocheckfn = []
+    binc = fn.btol * fn.btol
+    for i,t in enumerate(dtbl):
+        bo = False
+        if t >= binc:
+            bo = True
+        else:
+            if abs(al[nl[i+1]]-al[nl[i]]) >= fn.atol: bo = True
+        bocheckfn.append(bo)
+    assert all(bocheckfn)
+    print('==> dynamic-sep filtration ratio: ',fn.fratio)
+
+    # test on fixed cross filtration
+    n = len(rf.system)
+    fd['keepndxlist'] = random.sample(range(n),random.randint(2,n))
+    fv = Filtration(**fd)
+    fv.run()
+    bl = [sum(i) for i in fv.bondlist]
+    al = [sum(i) for i in fv.anglelist]
+    nl = sorted(range(len(bl)),key=lambda k: bl[k])
+    stbl = [bl[i] for i in nl]
+    dtbl = [v-stbl[i] for i,v in enumerate(stbl[1:])]
+    binc = fv.btol * fv.btol
+    for i,t in enumerate(dtbl):
+        bo = False
+        if t >= binc:
+            bo = True
+        else:
+            if abs(al[nl[i+1]]-al[nl[i]]) >= fv.atol: bo = True
+        assert bo
+
+    # dynamic-all
+    fd = {
+        'system'    :   rf.system,
+        'userinputs':   False,
+        'bcon'      :   bcon,
+        'acon'      :   acon,
+        'boall'     :   True,
+    }
+    fn = Filtration(**fd)
+    fn.run()
+
+    rawbondlist = fn.calc_square_distance(rf.system,fn.bcon)
+    rawanglelist = fn.calc_angle_degree(rf.system,fn.acon)
+    probondlist = [v for i,v in enumerate(rawbondlist) if i not in fn.reflist]
+    proanglelist = [v for i,v in enumerate(rawanglelist) if i not in fn.reflist]
     assert checkequal(probondlist, fn.bondlist)
     assert checkequal(proanglelist, fn.anglelist)
 
     rawtol = fn.atol + fn.btol*fn.btol
     prototal = [sum(v)+sum(proanglelist[i]) for i,v in enumerate(probondlist)]
+    stprototal = sorted(prototal)
+    prodel = [v-stprototal[i] for i,v in enumerate(stprototal[1:])]
+    bocheckfn = [True if i >= rawtol else False for i in prodel]
+    assert all(bocheckfn)
+    print('==> dynamic-all filtration ratio: ',fn.fratio)
+
+    # test on fixed cross filtration
+    n = len(rf.system)
+    #fd['keepndxlist'] = random.sample(range(n),random.randint(2,n))
+    fv = Filtration(**fd)
+    fv.run()
+    profv = [sum(v)+sum(fv.anglelist[i]) for i,v in enumerate(fv.bondlist)]
+    stprofv = sorted(profv)
+    prodt = [v-stprofv[i] for i,v in enumerate(stprofv[1:])]
+    bocheckfv = [True if i >= rawtol else False for i in prodt]
+    assert all(bocheckfv)
+    ratio = 1.0 - len(set([*fv.reflist,*fv.keepndxlist]))/len(rf.system)
+    print('==> dynamic-all filtration ratio: --keepndxlist ',ratio)
+
+
+def test_class_Filtration_static():
+    """
+    Be aware of the testing data file is used
+    """
+    def checkequal(alist,blist,tol=None):
+        if tol is None: tol = 10**(-5)
+        if len(alist) != len(blist): return False
+        for i,la in enumerate(alist):
+            for t,va in enumerate(la):
+                if va - blist[i][t] > tol:
+                    return False
+        return True
+
+    rf = ReadFile('choosetest.txt')
+    if not rf.nice:
+        print(rf.info)
+        exit()
+    rf.run()
+    ltmp = list(range(len(rf.system[0])))
+    if len(ltmp) <= 4:
+        print('Fatal: atom too less, cannot debug')
+        exit()
+    bcon = []
+    for i in range(5):
+        s = random.sample(ltmp,k=2)
+        st = sorted(s)
+        if st not in bcon: bcon.append(st)
+    acon = []
+    for i in range(5):
+        s = random.sample(ltmp,k=3)
+        st = sorted(s)
+        if st not in acon: acon.append(st)
+    
+    # static
+    fd = {
+        'system'    :   rf.system,
+        'userinputs':   False,
+        'bcon'      :   bcon,
+        'acon'      :   acon,
+        'boall'     :   True,
+        'mode'      :   'static',
+        'vndx'      :   None,
+        'borandom'  :   None,
+    }
+    fn = Filtration(**fd)
+    fn.run()
+
+    rawbondlist = fn.calc_square_distance(rf.system,fn.bcon)
+    rawanglelist = fn.calc_angle_degree(rf.system,fn.acon)
+    probondlist = [v for i,v in enumerate(rawbondlist) if i not in fn.reflist]
+    proanglelist = [v for i,v in enumerate(rawanglelist) if i not in fn.reflist]
+    assert checkequal(probondlist, fn.bondlist)
+    assert checkequal(proanglelist, fn.anglelist)
+    print(fn.fratio)
+
+    if len(fn.acon):
+        tol = fn.btol * fn.btol
+    elif len(fn.bcon):
+        tol = fn.atol
+    else:
+        tol = fn.atol + fn.btol*fn.btol
+    raw = [sum(v)+sum(rawanglelist[i]) for i,v in enumerate(rawbondlist)]
+    rmin = min(raw)
+    bal = [sum(v)+sum(proanglelist[i]) for i,v in enumerate(probondlist)]
+    stbal = sorted(bal)
+    bocheckfn = []
+    cnt = 0
+    for i in range(1,len(stbal)-1):
+        high = rmin + i*tol
+        if stbal[cnt] < high:
+            cnt += 1
+            if stbal[cnt] < high:
+                assert False
+
+    GOOD = 'good'
+    exit('in-good-GOOD')
+
     stprototal = sorted(prototal)
     prodel = [v-stprototal[i] for i,v in enumerate(stprototal[1:])]
     bocheckfn = [True if i >= rawtol else False for i in prodel]
@@ -1839,6 +2093,11 @@ def test_class_Filtration():
     assert all(bocheckfv)
 
 
+
+
+
+test_class_Filtration_static()
+exit('GOOD')
 
 
 def file_gen_new(fname,fextend='txt',foriginal=True,bool_dot=True):
@@ -1872,8 +2131,6 @@ def file_gen_new(fname,fextend='txt',foriginal=True,bool_dot=True):
         if not os.path.isfile(fname): break
         i += 1
     return fname
-
-
 
 
 def plot_save_image(ini,fin=None,dt=None,fname=None,key=None):
@@ -1955,8 +2212,6 @@ def plot_save_image(ini,fin=None,dt=None,fname=None,key=None):
     return True
 
 
-
-
 class BulkProcess:
     """bulk process for datafilelist based on indexfilelist
 
@@ -1974,9 +2229,8 @@ class BulkProcess:
     Note:
         fragments is input as human-readable number, starting at 1
     """
-    def __init__(self,datafilelist=None,indexfilelist=None,mode=None,
-                bool_force_double_check=None,
-                *args,**kwargs):
+    def __init__(self,datafilelist=None,indexfilelist=None,
+                bool_force_double_check=None,*args,**kwargs):
         self.nice = True
         self.info = ''
         self.datafilelist = []
@@ -1987,7 +2241,7 @@ class BulkProcess:
                 else:
                     print('Warning: not a data file < {:} >, ignoring'.format(f))
 
-        if len(self.datafilelist) == 0:
+        if not len(self.datafilelist):
             self.nice = False
             self.info = 'Fatal: no inputs'
             return
@@ -2004,20 +2258,17 @@ class BulkProcess:
         self.args = args
         self.kwargs = kwargs
 
-
-
     def run(self,debug=None):
         systemlist,energylist = self.get_datalist(self.datafilelist)
-        self.molnms = [len(i) for i in systemlist]
-
-        sysndxlist = []
-        if len(self.indexfilelist) != 0:
-            sysndxlist,tmp = self.get_datalist(self.indexfilelist)
-
-        if len(systemlist) == 0:
+        if not len(systemlist):
             self.nice = False
             self.info = 'Fatal: no inputs after process'
             return
+        self.molnms = [len(i) for i in systemlist]
+
+        sysndxlist = []
+        if len(self.indexfilelist):
+            sysndxlist,tmp = self.get_datalist(self.indexfilelist)
 
         # connections only need to be calculated once
         self.get_connections(systemlist[0][0])
@@ -2042,7 +2293,7 @@ class BulkProcess:
             for cnt,fd in enumerate(self.datafilelist):
                 print('   => {:} -- molnms {:}'.format(fd,self.molnms[cnt]))
 
-            if len(self.indexfilelist) != 0:
+            if len(self.indexfilelist):
                 print('Check: index files:')
                 for cnt,fd in enumerate(self.indexfilelist):
                     print('   => {:} -- molnms {:}'.format(fd,len(sysndxlist[cnt])))
@@ -2143,8 +2394,6 @@ class BulkProcess:
 
         self.save_files()
 
-
-
     def save_files(self):
         print('\nNote: saving bulk process results ...')
         tot = len(self.overall_system)
@@ -2167,7 +2416,7 @@ class BulkProcess:
         if self.boim:
             filedict['probability data file'] = self.save_probdata()
 
-            if len(self.overall_prob_begin['ball']) != 0:
+            if len(self.overall_prob_begin['ball']):
                 fgp = file_gen_new('bonds-all',fextend='png',foriginal=False)
                 fbo = plot_save_image(
                     self.overall_prob_begin['ball'],
@@ -2178,7 +2427,7 @@ class BulkProcess:
                 )
                 if fbo: filedict['image all bonds filtration file'] = fgp
 
-            if len(self.overall_prob_begin['aall']) != 0:
+            if len(self.overall_prob_begin['aall']):
                 fgp = file_gen_new('angles-all',fextend='png',foriginal=False)
                 fbo = plot_save_image(
                     self.overall_prob_begin['aall'],
@@ -2267,8 +2516,6 @@ class BulkProcess:
                     for i,j in enumerate(v):
                         f.write('  ==> {:>3}: {:}\n'.format(i+1,j))
 
-
-
     def save_probdata(self):
         def gen_outputs(prob,bcon,acon,key):
             def fout(pdata):
@@ -2283,13 +2530,13 @@ class BulkProcess:
                 return out
 
             k = key.upper()
-            contents = f'@{k}  BALL\n' + fout(prob['ball']) if len(prob['ball']) != 0 else ''
-            if len(prob['bpar']) != 0:
+            contents = f'@{k}  BALL\n' + fout(prob['ball']) if len(prob['ball']) else ''
+            if len(prob['bpar']):
                 for n,data in enumerate(prob['bpar']):
                     contents += '@{:}  BPAR   {:}  {:}\n'.format(k,*bcon[n])
                     contents += fout(data)
-            if len(prob['aall']) != 0: contents += f'@{k}  AALL\n' + fout(prob['aall'])
-            if len(prob['apar']) != 0:
+            if len(prob['aall']): contents += f'@{k}  AALL\n' + fout(prob['aall'])
+            if len(prob['apar']):
                 for n,data in enumerate(prob['apar']):
                     contents += '@{:}  APAR   {:}  {:}  {:}\n'.format(k,*acon[n])
                     contents += fout(data)
@@ -2308,8 +2555,6 @@ class BulkProcess:
             f.write(gen_outputs(self.overall_prob_final,mbcon,macon,'final'))
         return fdata
 
-
-
     def get_datalist(self,filelist):
         """return 4D list"""
         datalist = []
@@ -2318,12 +2563,10 @@ class BulkProcess:
             rf = ReadFile(f)
             rf.run()
             print('Note: for file < {:} >, number of inputs < {:} >'.format(f,len(rf.system)))
-            if len(rf.system) != 0:
+            if len(rf.system):
                 datalist.append(rf.system)
                 energylist.append(rf.energy)
         return datalist,energylist
-
-
 
     def get_connections(self,system):
         """
@@ -2437,8 +2680,6 @@ class BulkProcess:
         # always set final userinputs to False
         self.kwargs['userinputs'] = False
 
-
-
     def check_user_input_connections(self,ul,fl,bo=None):
         offset = 1 if bo is True else 0
         for ndx in ul:
@@ -2461,8 +2702,6 @@ class BulkProcess:
                 self.info = 'Fatal: atom index should start at 1'
                 return False
         return ptmp
-
-
 
     def func_calc_connections(self,fragments):
         """Bond & Angle connection based on fragments
@@ -2502,8 +2741,6 @@ class BulkProcess:
                 for v in fragments[2:]:
                     acon.append([at1,at2,v[0]])
         return bcon,acon
-
-
 
 
 class PlotSamples(BulkProcess):
@@ -2611,12 +2848,10 @@ class PlotSamples(BulkProcess):
             # only number of samples bigger than 10 will be kept
             self.choices = [i for i in self.choices if len(i) > 10]
 
-
-
     def run(self):
         bondsdict = {'all':[], }
         anglesdict = {'all':[], }
-        if len(self.probdatafilelist) != 0:
+        if len(self.probdatafilelist):
             print('Note: generate plots on probability data files ...')
             for f in self.probdatafilelist:
                 bonds, angles = self.read_probdatafile(f)
@@ -2627,7 +2862,7 @@ class PlotSamples(BulkProcess):
                     if k not in anglesdict: anglesdict[k] = []
                     anglesdict[k].append(angles[k])
 
-        if len(self.choices) != 0 and self.nice:
+        if len(self.choices) and self.nice:
             overall_prob_begin = []
             overall_prob_final = []
             overall_dt = []
@@ -2646,14 +2881,14 @@ class PlotSamples(BulkProcess):
             for i,di in enumerate(overall_prob_begin):
                 df = overall_prob_final[i]
 
-                if len(di['ball']) != 0:
+                if len(di['ball']):
                     p = {}
                     p['begin'] = di['ball']
                     p['final'] = df['ball']
                     p['dt'] = overall_dt[i][0]
                     bondsdict['all'].append(p)
                 
-                if len(di['aall']) != 0:
+                if len(di['aall']):
                     p = {}
                     p['begin'] = di['aall']
                     p['final'] = df['aall']
@@ -2665,7 +2900,7 @@ class PlotSamples(BulkProcess):
                         if k[0] > k[1]: k[0],k[1] = k[1],k[0]
                         key = '{:}-{:}'.format(k[0],k[1])
                         if key not in bondsdict: bondsdict[key] = []
-                        if len(di['bpar'][j]) != 0:
+                        if len(di['bpar'][j]):
                             p = {}
                             p['begin'] = di['bpar'][j]
                             p['final'] = df['bpar'][j]
@@ -2677,7 +2912,7 @@ class PlotSamples(BulkProcess):
                         if k[0] > k[2]: k[0],k[2] = k[2],k[0]
                         key = '{:}-{:}-{:}'.format(k[0],k[1],k[2])
                         if key not in anglesdict: anglesdict[key] = []
-                        if len(di['apar'][j]) != 0:
+                        if len(di['apar'][j]):
                             p = {}
                             p['begin'] = di['apar'][j]
                             p['final'] = df['apar'][j]
@@ -2688,8 +2923,6 @@ class PlotSamples(BulkProcess):
             self.save_image_samples(bondsdict[k],label='bonds')
         for k in anglesdict:
             self.save_image_samples(anglesdict[k],label='angles')
-
-
 
     class CYCLE:
         """infinite cycle works similar like itertools.cycle()"""
@@ -2705,8 +2938,6 @@ class PlotSamples(BulkProcess):
             return v
         def next(self):
             return self.__next__()
-
-
 
     def save_image_samples(self,datalist,label=None,fname=None):
         """
@@ -2732,7 +2963,7 @@ class PlotSamples(BulkProcess):
             if len(data['begin'][0]) < 5 or len(data['final'][0]) < 5: continue
             prodatalist.append(data)
             molnms.append(sum(data['begin'][0]))
-        if len(prodatalist) == 0: return
+        if not len(prodatalist): return
 
         # sort them to make plot more tight
         reflist = sorted(range(len(molnms)), key=lambda k: molnms[k])
@@ -2766,12 +2997,10 @@ class PlotSamples(BulkProcess):
         plt.close()
         return fname
 
-
-
     def read_probdatafile(self,file):
         def getdata(text,key=None):
             ltmp = text.split()
-            if len(ltmp) == 0: return []
+            if not len(ltmp): return []
             if key is not None and key >= len(ltmp): return []
             value = None
             data = []
@@ -2827,7 +3056,7 @@ class PlotSamples(BulkProcess):
                     cnt += 1
                     if cnt >= len(profile): break
                     line = profile[cnt].strip()
-                    if len(line) == 0: continue
+                    if not len(line): continue
                     if line[0] == '@':
                         # caution: here is important
                         cnt -= 1
@@ -2876,7 +3105,7 @@ class PlotSamples(BulkProcess):
         for i in bpar:
             for j in bpar[i]:
                 data = getdata(j,2)
-                if len(data) == 0: continue
+                if not len(data): continue
                 bi,bj = data[0][0], data[0][1]
                 if bi > bj: bj, bi = bi, bj
                 key = '{:}-{:}'.format(bi,bj)
@@ -2888,7 +3117,7 @@ class PlotSamples(BulkProcess):
         for i in apar:
             for j in apar[i]:
                 data = getdata(j,3)
-                if len(data) == 0: continue
+                if not len(data): continue
                 ai,aj = data[0][0], data[0][2]
                 if ai > aj: aj, ai = ai, aj
                 key = '{:}-{:}-{:}'.format(ai,data[0][1],aj)
@@ -2898,8 +3127,6 @@ class PlotSamples(BulkProcess):
                 angles[key]['dt'] = atol
 
         return bonds, angles
-
-
 
 
 def parsecmd():
@@ -2915,7 +3142,7 @@ def parsecmd():
         ls = []
         for t in lt:
             lp = t.split()
-            if len(lp) == 0: continue
+            if not len(lp): continue
             if bobcon:
                 if len(lp) == 2:
                     ls.append(lp)
@@ -2931,7 +3158,7 @@ def parsecmd():
             else:
                 ls.append(lp)
 
-        if len(ls) == 0: return []
+        if not len(ls): return []
 
         lm = []
         for t in ls:
@@ -3141,6 +3368,10 @@ def parsecmd():
         'atol'                      :   None,
         'oaall'                     :   True,
         'oapar'                     :   False,
+        'mode'                      :   None,
+        'vndx'                      :   None,
+        'borandom'                  :   None,
+        'boall'                     :   None,
         'fragments'                 :   None,
         'bool_force_double_check'   :   True,
         'userinputs'                :   True,
@@ -3158,10 +3389,10 @@ def parsecmd():
 
     bod = False
     if 'datafilelist' in args and args.datafilelist is not None:
-        if len(args.datafilelist) != 0: bod = True
+        if len(args.datafilelist): bod = True
     bog = False
     if 'probdatafilelist' in args and args.probdatafilelist is not None:
-        if len(args.probdatafilelist) != 0: bog = True
+        if len(args.probdatafilelist): bog = True
     if 'command' in args:
         if not bod and not bog:
             print('Fatal: no input: missing:  -f/--datafilelist or -bf/--probdatafilelist')
@@ -3218,8 +3449,6 @@ def parsecmd():
         return
     PS.run()
     if not PS.nice: print(PS.info)
-
-
 
 
 if __name__ == '__main__':
