@@ -64,6 +64,7 @@ FEATURES = [
     'version 3.8.0  : add plot random seed',
     'version 3.9.0  : add dynamic and static method in Filtration',
     'version 4.0.0  : RELEASE',
+    'version 4.0.1  : add more calculation type in Check',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -2317,7 +2318,17 @@ class BulkProcess:
             print('Check: (images) angles par probability < {:} > (time consuming)'.format(stmp))
             print('Check: bonds tolerance < {:} Angstrom >'.format(mf.btol))
             print('Check: angles tolerance < {:} degree >'.format(mf.atol))
-
+            if mf.mode == 'dynamic':
+                if mf.boall:
+                    print('Check: calculation type: < dynamic/all >')
+                else:
+                    print('Check: calculation type: < dynamic/separate >')
+            else:
+                if mf.borandom:
+                    print('Check: calculation type: < static/random >')
+                else:
+                    print('Check: calculation type: < static/lowest-bit >')
+                if mf.vndx: print('Check: calculation vndx: < {:} >'.format(mf.vndx))
             imtot = 0
             if mf.oball: imtot += 1
             if mf.oaall: imtot += 1
@@ -2794,14 +2805,16 @@ class PlotSamples(BulkProcess):
         self.nmranges = nmranges
         self.nmlist = nmlist
 
-        # after debug run, everything is ready
-        self.allsystems = []
-        if self.nice:
-            self.allsystems = super().run(debug=True)
-            if self.allsystems is None: self.allsystems = []
-        tot = len(self.allsystems)
         self.choices = []
-        if nmlist is None:
+        # after debug run, everything is ready
+        allsystems = []
+        if self.nice and len(self.datafilelist):
+            allsystems = super().run(debug=True)
+            if allsystems is None: allsystems = []
+            tot = len(allsystems)
+        if not len(self.datafilelist) or not self.nice:
+            pass
+        elif nmlist is None:
             pass
         elif isinstance(nmlist,list):
             for i in nmlist:
@@ -2818,37 +2831,37 @@ class PlotSamples(BulkProcess):
             if nmlist is None: self.info = 'Fatal: wrong defined: nmlist'
         # nmlist is in the highest priority
         bo = True
-        if self.nice and nmlist is not None:
+        if len(self.datafilelist) and self.nice and nmlist is not None:
             bo = False
             for i in nmlist:
-                self.choices.append(random.sample(self.allsystems,i))
-        if bo and self.nice and 'datafilelist' in kwargs:
+                self.choices.append(random.sample(allsystems,i))
+        if len(self.datafilelist) and bo and self.nice and 'datafilelist' in kwargs:
             if tot <= 20:
                 self.info = 'Warning: too few inputs: datafilelist'
                 self.nice = False
-        if bo and self.nice:
+        if len(self.datafilelist) and bo and self.nice:
             if endndx is not None and endndx > tot:
                 self.info = 'Fatal: too large: endndx --> total:{:}'.format(tot)
                 self.nice = False
-        if bo and self.nice:
+        if len(self.datafilelist) and bo and self.nice:
             if startndx is not None and startndx > tot:
                 self.info = 'Fatal: too large: startndx --> total:{:}'.format(tot)
                 self.nice = False
-        if bo and self.nice:
+        if len(self.datafilelist) and bo and self.nice:
             if incndx is not None and incndx > tot:
                 self.info = 'Fatal: too large: incndx --> total:{:}'.format(tot)
                 self.nice = False
-        if bo and self.nice:
+        if len(self.datafilelist) and bo and self.nice:
             if nmranges is not None and nmranges > tot:
                 self.info = 'Fatal: too large: nmranges --> total:{:}'.format(tot)
                 self.nice = False
-        if bo and self.nice:
+        if len(self.datafilelist) and bo and self.nice:
             if nmsamples is not None and nmsamples*8 > tot:
                 self.info = 'Fatal: too large: nmsamples --> total:{:}'.format(tot)
                 self.nice = False
-        if bo and self.nice:
+        if len(self.datafilelist) and bo and self.nice:
             # alias
-            samples = self.allsystems
+            samples = allsystems
             if startndx is not None: samples = samples[startndx:]
             if endndx is not None: samples = samples[:endndx]
             if nmranges is None: nmranges = 0
@@ -2877,6 +2890,7 @@ class PlotSamples(BulkProcess):
         if len(self.probdatafilelist):
             print('Note: generate plots on probability data files ...')
             for f in self.probdatafilelist:
+                print('Note: reading data from file: < {:} >'.format(f))
                 bonds, angles = self.read_probdatafile(f)
                 for k in bonds:
                     if k not in bondsdict: bondsdict[k] = []
