@@ -63,6 +63,7 @@ FEATURES = [
     'version 3.7.1  : small fix on userinputs',
     'version 3.8.0  : add plot random seed',
     'version 3.9.0  : add dynamic and static method in Filtration',
+    'version 4.0.0  : RELEASE',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -430,7 +431,7 @@ class ReadFile:
                     sub = profile[j]
                     if sub.find('#') != -1: break
                     sub = sub.strip()
-                    if not len(sub): ls.append([sub,j])
+                    if len(sub): ls.append([sub,j])
                     j += 1
                 promol.append(ls)
                 i = j
@@ -564,13 +565,13 @@ class ReadFile:
         mol = []
         for cnt,line in enumerate(profile):
             sub = line.strip()
-            if not len(sub):
+            if len(sub):
+                mol.append([sub,cnt])
+            else:
                 if not len(mol): continue
                 promol.append(mol)
                 # initialize
                 mol = []
-            else:
-                mol.append([sub,cnt])
         # last mol
         if len(mol): promol.append(mol)
 
@@ -692,9 +693,8 @@ class SaveFile:
         if ndx == -1:
             self.fname = self.fname + '.' + self.ftype
         else:
-            ext = self.fname[ndx:]
-            if ext != '.' + self.ftype:
-                self.fname = self.fname + '.' + self.ftype
+            if self.fname[ndx:] != '.' + self.ftype:
+                self.fname = self.fname[:ndx] + '.' + self.ftype
 
         # get real atomtype list
         # format: 2D: [ [sign, number-int, number-str, name], ... ]
@@ -1439,10 +1439,13 @@ class Filtration:
         self.seed = seed if seed else random.randrange(100000000)
         random.seed(self.seed)
 
-        self.mode = mode
+        if mode is None or mode.lower() in ['d','dynamic']:
+            self.mode = 'dynamic'
+        else:
+            self.mode = 'static'
         self.vndx = vndx
         self.borandom = borandom
-        self.boall = boall
+        self.boall = True if boall is None else boall
 
         self.obpar = True if obpar is True else False
         self.oball = False if oball is False else True
@@ -1460,7 +1463,9 @@ class Filtration:
         """attemption on filtering
         """
         # to improve efficiency, bondlist only needs to be calculated once
+        if len(self.bcon): print('Note: calculating bonds connections ...')
         bondlist = self.calc_square_distance(self.system,self.bcon)
+        if len(self.acon): print('Note: calculating angles connections ...')
         anglelist = self.calc_angle_degree(self.system,self.acon)
 
         # increments
@@ -1477,7 +1482,7 @@ class Filtration:
         if self.oapar or self.oaall:
             print('Note: calculating begin angles probability ...')
             self.prob_begin['apar'], self.prob_begin['aall'] = self.calc_probs(anglelist,ainc,self.oapar,self.oaall)
-
+        print('Note: calculating repeats reference ...')
         self.reflist = self.calc_filterlists(bondlist,anglelist,binc,ainc,mode=self.mode,vndx=self.vndx,
                                             borandom=self.borandom,boall=self.boall,keepndxlist=self.keepndxlist)
         
@@ -1574,13 +1579,15 @@ class Filtration:
             stls = sorted(ls)
             rmin = stls[0]
             steps = (stls[-1] - rmin) / dt
-            # for round-of-errors
-            steps = int(steps) + 1
+            # for round-of-errors, as well as endpoint
+            steps = int(steps) + 2
             # all on same values
-            if steps <= 2:
+            if steps <= 3:
                 return [len(ls)],rmin
             prolist = []
             ndx = 0
+            # for endpoint
+            stls.append(stls[-1]+dt)
             for v in range(1,steps):
                 high = rmin + v*dt
                 for n,t in enumerate(stls[ndx:]):
@@ -1632,28 +1639,18 @@ class Filtration:
             # dynamic-separate on anglelist
             reflist.append(-1)
             cnt = 0
-            trn = 0
             mybl = []
             myal = []
             ndxlist = []
-            # caution! do not modify original reference
-            tmpkeep = [i for i in keepndxlist]
-            tmpkeep.append(len(bl)+10)
             for i in range(len(bl)):
                 if i == reflist[cnt]:
                     cnt += 1
-                    # update tmpkeep due to remove of reflist
-                    if i < tmpkeep[trn]:
-                        for k in range(trn,len(tmpkeep)):
-                            tmpkeep[k] -= 1
-                    else:
-                        trn += 1
                 else:
                     mybl.append(bl[i])
                     myal.append(al[i])
                     ndxlist.append(i)
             reflist.pop(len(reflist)-1)
-            tmplist = self._calc_filterlists_sep_dynamic(myal,mybl,ainc,binc,tmpkeep)
+            tmplist = self._calc_filterlists_sep_dynamic(myal,mybl,ainc,binc,keepndxlist)
             reflist.extend([ndxlist[i] for i in tmplist])
             return sorted(reflist)
         return self._calc_filterlists_static(bl,al,binc,ainc,keepndxlist,vndx,borandom)
@@ -2073,31 +2070,26 @@ def test_class_Filtration_static():
             if stbal[cnt] < high:
                 assert False
 
-    GOOD = 'good'
-    exit('in-good-GOOD')
-
-    stprototal = sorted(prototal)
-    prodel = [v-stprototal[i] for i,v in enumerate(stprototal[1:])]
-    bocheckfn = [True if i >= rawtol else False for i in prodel]
-    assert all(bocheckfn)
-
     # test on fixed cross filtration
     n = len(rf.system)
     fd['keepndxlist'] = random.sample(range(n),random.randint(2,n))
     fv = Filtration(**fd)
     fv.run()
-    profv = [sum(v)+sum(fv.anglelist[i]) for i,v in enumerate(fv.bondlist)]
-    stprofv = sorted(profv)
-    prodt = [v-stprofv[i] for i,v in enumerate(stprofv[1:])]
-    bocheckfv = [True if i >= rawtol else False for i in prodt]
-    assert all(bocheckfv)
-
-
-
-
-
-test_class_Filtration_static()
-exit('GOOD')
+    fv.reflist.extend(fd['keepndxlist'])
+    probondlist = [v for i,v in enumerate(rawbondlist) if i not in fv.reflist]
+    proanglelist = [v for i,v in enumerate(rawanglelist) if i not in fv.reflist]
+    raw = [sum(v)+sum(rawanglelist[i]) for i,v in enumerate(rawbondlist)]
+    rmin = min(raw)
+    bal = [sum(v)+sum(proanglelist[i]) for i,v in enumerate(probondlist)]
+    stbal = sorted(bal)
+    bocheckfn = []
+    cnt = 0
+    for i in range(1,len(stbal)-1):
+        high = rmin + i*tol
+        if stbal[cnt] < high:
+            cnt += 1
+            if stbal[cnt] < high:
+                assert False
 
 
 def file_gen_new(fname,fextend='txt',foriginal=True,bool_dot=True):
@@ -2274,7 +2266,7 @@ class BulkProcess:
         self.get_connections(systemlist[0][0])
         if not self.nice: return
 
-        # to make cross filtration happen, sysndxlist should at the first
+        # to make cross filtration happen, sysndxlist should be at the first
         allsystem = []
         allenergy = []
         for i in sysndxlist:
@@ -2282,7 +2274,7 @@ class BulkProcess:
             allsystem.extend(i)
         allkeeps = list(range(len(allsystem)))
         for i in systemlist: allsystem.extend(i)
-        for i in energylist: allenergy.extend([j for j in i])
+        for i in energylist: allenergy.extend(i)
         mf = Filtration(system=allsystem,keepndxlist=allkeeps,*self.args,**self.kwargs)
 
         # prompt for double check
@@ -2341,6 +2333,11 @@ class BulkProcess:
 
         if debug: return allsystem
         mf.run()
+        self.seed = mf.seed
+        self.mode = mf.mode
+        self.boall = mf.boall
+        self.vndx = mf.vndx
+        self.borandom = mf.borandom
 
         # accumulation only on datafilelist
         tot = 0
@@ -2373,8 +2370,7 @@ class BulkProcess:
 
         self.overall_energy = []
         self.overall_system = []
-        totreflist =  list(range(len(allkeeps)))
-        totreflist = sorted([*totreflist,*mf.reflist])
+        totreflist = sorted([*allkeeps,*mf.reflist])
         totreflist.append(-1)
         ndx = 0
         for i,v in enumerate(allenergy):
@@ -2383,7 +2379,6 @@ class BulkProcess:
             else:
                 self.overall_energy.append(v)
                 self.overall_system.append(allsystem[i])
-
         self.bcon = mf.bcon
         self.acon = mf.acon
         self.btol = mf.btol
@@ -2391,15 +2386,15 @@ class BulkProcess:
         self.boim = True if mf.oball or mf.obpar or mf.oaall or mf.oapar else False
         self.overall_prob_begin = mf.prob_begin
         self.overall_prob_final = mf.prob_final
-
         self.save_files()
 
     def save_files(self):
         print('\nNote: saving bulk process results ...')
         tot = len(self.overall_system)
+        print('Note: total molnms: < {:} >'.format(sum(self.molnms)))
         print('Note: final molnms: < {:} >'.format(tot))
-        outratio = round(tot/sum(self.molnms),4)
-        print('Note: filtration ratio: < {:} >'.format(outratio))
+        ratio = ('%f' % (1-round(tot/sum(self.molnms),6))).rstrip('0').rstrip('.')
+        print('Note: filtration ratio: < {:} >'.format(ratio))
 
         # files
         fd = SaveFile(self.overall_system,*self.args,**self.kwargs)
@@ -2468,17 +2463,33 @@ class BulkProcess:
         print('Note: please check summary file for more info: < {:} >'.format(ftot))
         with open(ftot,'wt') as f:
             f.write('Note: current work path:\n')
-            f.write('   => {:}\n'.format(os.path.abspath('.')))
+            f.write('  => {:}\n'.format(os.path.abspath('.')))
+            f.write('Note: random seed: {:}\n'.format(self.seed))
             f.write('Note: bulk process for input files:\n')
-            for cnt,fd in enumerate(self.datafilelist):
-                f.write('  => {:} -- molnms {:}\n'.format(fd,self.molnms[cnt]))
-            f.write('\nNote: index files:\n')
-            for fd in self.indexfilelist:
-                f.write('  => {:}\n'.format(fd))
+            for i,fd in enumerate(self.datafilelist):
+                f.write('  => {:} -- molnms {:} => remove {:}\n'.format(fd,self.molnms[i],self.rmnmlist[i]))
+            f.write('Note: total number of inputs: {:}\n'.format(sum(self.molnms)))
+            if len(self.indexfilelist):
+                f.write('\nNote: index files:\n')
+                for fd in self.indexfilelist:
+                    f.write('  => {:}\n'.format(fd))
+            if self.mode is None or self.mode == 'dynamic':
+                f.write('\nNote: filtration mode is: dynamic\n')
+                if self.boall:
+                    f.write('  => calculation is performed for all entries\n')
+                else:
+                    f.write('  => calculation is performed separately\n')
+            else:
+                f.write('\nNote: filtration mode is: static\n')
+                if self.vndx: f.write('  => index value is: {:}\n'.format(self.vndx))
+                if self.borandom:
+                    f.write('  => randomly filtration')
+                else:
+                    f.write('  => lowest-bit filtration')
             f.write('\nNote: result file:\n')
             f.write('  => {:} -- molnms {:}\n'.format(outfile,len(self.overall_system)))
-            f.write('\nNote: filtration ratio: {:}\n'.format(outratio))
-            f.write('\nNote: Index of connections start at 1\n')
+            f.write('\nNote: filtration ratio: {:}\n'.format(ratio))
+            f.write('\nNote: index of connections start at 1\n')
             f.write('\nNote: bonds connections:\n')
             tot = ''
             out = '  => '
@@ -2511,7 +2522,7 @@ class BulkProcess:
             for k,v in filedict.items():
                 if isinstance(v,str):
                     f.write('Note: {:<40}:   {:}\n'.format(k,v))
-                else:
+                elif len(v):
                     f.write('Note: {:}:\n'.format(k))
                     for i,j in enumerate(v):
                         f.write('  ==> {:>3}: {:}\n'.format(i+1,j))
@@ -2571,7 +2582,7 @@ class BulkProcess:
     def get_connections(self,system):
         """
         Rule:
-            now, we think as user input is always on the first priority,
+            now, we think user input is always on the first priority,
             and bcon & acon at the latter place
 
             connection is got in sequence:
@@ -2594,6 +2605,7 @@ class BulkProcess:
         bog = False
         if 'fragments' in self.kwargs and self.kwargs['fragments'] is not None:
             bog = True
+            if not len(self.kwargs['fragments']): self.kwargs['fragments'] = fn.fragments
             if self.kwargs['userinputs']:
                 fg = [[j-1 for j in i] for i in self.kwargs['fragments']]
                 if min([min(i) for i in fg]) < 0:
@@ -2681,6 +2693,7 @@ class BulkProcess:
         self.kwargs['userinputs'] = False
 
     def check_user_input_connections(self,ul,fl,bo=None):
+        if not len(ul): return []
         offset = 1 if bo is True else 0
         for ndx in ul:
             if len(set(ndx)) != len(ndx):
@@ -2745,9 +2758,16 @@ class BulkProcess:
 
 class PlotSamples(BulkProcess):
     def __init__(self,probdatafilelist=None,nmsamples=None,nmlist=None,
-                startndx=None,endndx=None,incndx=None,nmranges=None,seed=None,
+                startndx=None,endndx=None,incndx=None,nmranges=None,
                 *args,**kwargs):
+        seed = kwargs['seed'] if 'seed' in kwargs else None
+        self.seed = seed if seed else random.randrange(100000000)
+        random.seed(self.seed)
+        kwargs['seed'] = self.seed
         super().__init__(*args,**kwargs)
+        if not len(self.datafilelist):
+            self.nice = True
+            self.info = ''
 
         self.probdatafilelist = []
         if probdatafilelist is not None:
@@ -2757,13 +2777,15 @@ class PlotSamples(BulkProcess):
                 else:
                     print('Warning: not probability data file < {:} >, ignoring'.format(f))
 
+        if not len(self.datafilelist) and not len(self.probdatafilelist):
+            self.nice = True
+            self.info = 'Fatal: no valid inputs: datafilelist/probdatafilelist'
+            return
+
         if 'userinputs' in kwargs and kwargs['userinputs']:
             if startndx is not None: startndx -= 1
             if endndx is not None: endndx -= 1
         
-        self.seed = seed if seed else random.randrange(100000000)
-        random.seed(self.seed)
-
         # assume data has been properly processed, index starts at 0
         self.nmsamples = nmsamples
         self.startndx = startndx
@@ -2777,7 +2799,6 @@ class PlotSamples(BulkProcess):
         if self.nice:
             self.allsystems = super().run(debug=True)
             if self.allsystems is None: self.allsystems = []
-        bo = self.nice
         tot = len(self.allsystems)
         self.choices = []
         if nmlist is None:
@@ -2785,45 +2806,47 @@ class PlotSamples(BulkProcess):
         elif isinstance(nmlist,list):
             for i in nmlist:
                 if not isinstance(i,int):
-                    bo = False
-                    print('Fatal: wrong defined: not a number: {:}'.format(i))
-                    break
+                    self.nice = False
+                    self.info = 'Fatal: wrong defined: not a number: {:}'.format(i)
+                    return
                 if i > tot:
-                    bo = False
-                    print('Fatal: wrong defined: too large: {:}'.format(i))
-                    break
+                    self.nice = False
+                    self.info = 'Fatal: wrong defined: too large: {:}'.format(i)
+                    return
         else:
-            bo = False
-            if nmlist is None: print('Fatal: wrong defined: nmlist')
-        if bo and nmlist is not None:
+            self.nice = False
+            if nmlist is None: self.info = 'Fatal: wrong defined: nmlist'
+        # nmlist is in the highest priority
+        bo = True
+        if self.nice and nmlist is not None:
             bo = False
             for i in nmlist:
                 self.choices.append(random.sample(self.allsystems,i))
-        if bo and 'datafilelist' in kwargs:
+        if bo and self.nice and 'datafilelist' in kwargs:
             if tot <= 20:
-                print('Warning: no data or too few due to wrong sample files inputs')
-                bo = False
-        if bo:
+                self.info = 'Warning: too few inputs: datafilelist'
+                self.nice = False
+        if bo and self.nice:
             if endndx is not None and endndx > tot:
-                print('Fatal: too large: endndx --> total:{:}'.format(tot))
-                bo = False
-        if bo:
+                self.info = 'Fatal: too large: endndx --> total:{:}'.format(tot)
+                self.nice = False
+        if bo and self.nice:
             if startndx is not None and startndx > tot:
-                print('Fatal: too large: startndx --> total:{:}'.format(tot))
-                bo = False
-        if bo:
+                self.info = 'Fatal: too large: startndx --> total:{:}'.format(tot)
+                self.nice = False
+        if bo and self.nice:
             if incndx is not None and incndx > tot:
-                print('Fatal: too large: incndx --> total:{:}'.format(tot))
-                bo = False
-        if bo:
+                self.info = 'Fatal: too large: incndx --> total:{:}'.format(tot)
+                self.nice = False
+        if bo and self.nice:
             if nmranges is not None and nmranges > tot:
-                print('Fatal: too large: nmranges --> total:{:}'.format(tot))
-                bo = False
-        if bo:
+                self.info = 'Fatal: too large: nmranges --> total:{:}'.format(tot)
+                self.nice = False
+        if bo and self.nice:
             if nmsamples is not None and nmsamples*8 > tot:
-                print('Fatal: too large: nmsamples --> total:{:}'.format(tot))
-                bo = False
-        if bo:
+                self.info = 'Fatal: too large: nmsamples --> total:{:}'.format(tot)
+                self.nice = False
+        if bo and self.nice:
             # alias
             samples = self.allsystems
             if startndx is not None: samples = samples[startndx:]
@@ -2862,7 +2885,7 @@ class PlotSamples(BulkProcess):
                     if k not in anglesdict: anglesdict[k] = []
                     anglesdict[k].append(angles[k])
 
-        if len(self.choices) and self.nice:
+        if len(self.choices):
             overall_prob_begin = []
             overall_prob_final = []
             overall_dt = []
@@ -2895,7 +2918,7 @@ class PlotSamples(BulkProcess):
                     p['dt'] = overall_dt[i][1]
                     anglesdict['all'].append(p)
                 
-                if bconlist[i] is not None and len(bconlist[i]) != 0 and len(di['bpar']) != 0:
+                if bconlist[i] is not None and not len(bconlist[i]) and not len(di['bpar']):
                     for j,k in enumerate(bconlist[i]):
                         if k[0] > k[1]: k[0],k[1] = k[1],k[0]
                         key = '{:}-{:}'.format(k[0],k[1])
@@ -2907,7 +2930,7 @@ class PlotSamples(BulkProcess):
                             p['dt'] = overall_dt[i][0]
                             bondsdict[key].append(p)
 
-                if aconlist[i] is not None and len(aconlist[i]) != 0 and len(di['apar']) != 0:
+                if aconlist[i] is not None and not len(aconlist[i]) and not len(di['apar']):
                     for j,k in enumerate(aconlist[i]):
                         if k[0] > k[2]: k[0],k[2] = k[2],k[0]
                         key = '{:}-{:}-{:}'.format(k[0],k[1],k[2])
@@ -2918,7 +2941,30 @@ class PlotSamples(BulkProcess):
                             p['final'] = df['apar'][j]
                             p['dt'] = overall_dt[i][1]
                             anglesdict[key].append(p)
-
+        # more info
+        print('\nNote: random seed: {:}'.format(self.seed))
+        if len(self.choices):
+            if 'mode' in self.kwargs and self.kwargs['mode'] is not None:
+                mode = self.kwargs['mode'].lower()
+                mode = 'dynamic' if mode in ['d','dynamic'] else 'static'
+            else:
+                mode = 'dynamic'
+            print('Note: filtration mode is: {:}'.format(mode))
+            if mode == 'dynamic':
+                boall = self.kwargs['boall'] if 'boall' in self.kwargs else None
+                boall = True if boall or boall is None else False
+                if boall:
+                    print('  => calculation is performed for all entries')
+                else:
+                    print('  => calculation is performed separately')
+            else:
+                vndx = self.kwargs['vndx'] if 'vndx' in self.kwargs else None
+                if vndx: print('  => index value is: {:}'.format(vndx))
+                borandom = self.kwargs['borandom'] if 'borandom' in self.kwargs else None
+                if borandom:
+                    print('  => randomly filtration')
+                else:
+                    print('  => lowest-bit filtration')
         for k in bondsdict:
             self.save_image_samples(bondsdict[k],label='bonds')
         for k in anglesdict:
@@ -3196,6 +3242,31 @@ def parsecmd():
         metavar='file',
     )
     parser.add_argument(
+        '--static',
+        help='turn on static mode calculation, default is in dynamic/all mode',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--separate',
+        help='valid in dynamic mode, change to dynamic/separate mode',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--vndx',
+        help='valid in static mode, set filtration index value',
+        type=float,
+    )
+    parser.add_argument(
+        '--borandom',
+        help='valid in static mode, rather than by lowest-bit, filtering out molecules randomly',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--seed',
+        help='random seed, (optional, highest priority)',
+        type=int,
+    )
+    parser.add_argument(
         '-btol','--btol',
         help='bonds tolerance, any changes in bcon smaller than it will be filtered out',
         type=float,
@@ -3219,43 +3290,43 @@ def parsecmd():
     )
     parser.add_argument(
         '-g','--fragments',
-        help='Molecular fragments, separate by comma',
+        help='fragments, separate by comma',
         nargs='+',
         metavar='G',
     )
     parser.add_argument(
         '--no-oball',
-        help='Turn off bonds probability overall calculation, Boolean',
+        help='turn off bonds probability overall calculation, Boolean',
         action='store_true',
     )
     parser.add_argument(
         '-obpar','--obpar',
-        help='Turn on bonds probability parameters calculation, Boolean',
+        help='turn on bonds probability parameters calculation, Boolean',
         action='store_true',
     )
     parser.add_argument(
         '--no-oaall',
-        help='Turn off angles probability overall calculation, Boolean',
+        help='turn off angles probability overall calculation, Boolean',
         action='store_true',
     )
     parser.add_argument(
         '-oapar','--oapar',
-        help='Turn on angles probability parameters calculation, Boolean',
+        help='turn on angles probability parameters calculation, Boolean',
         action='store_true',
     )
     parser.add_argument(
         '-nc','--no-force-double-check',
-        help='Turn off double check prompt info before execution',
+        help='turn off double check prompt info before execution',
         action='store_true',
     )
     parser.add_argument(
         '--features',
-        help='Show develop features',
+        help='show development features',
         action='store_true',
     )
     parser.add_argument(
         '-p','--file-format-explanations',
-        help='Show input system file format explanations',
+        help='show input system file format explanations',
         action='store_true',
     )
     parser.add_argument(
@@ -3265,11 +3336,11 @@ def parsecmd():
     )
     parser.add_argument(
         '-o','--fname',
-        help='Output system file name',
+        help='output system file name',
     )
     parser.add_argument(
         '-ft','--ftype',
-        help='Output system file type, [txt, xsf, xyz]',
+        help='output system file type, [txt, xsf, xyz]',
     )
     subparser = parser.add_subparsers(title='continuous subcommand')
     sub = subparser.add_parser(
@@ -3321,12 +3392,6 @@ def parsecmd():
         metavar='n',
         type=int,
     )
-    sub.add_argument(
-        '-seed','--seed',
-        help='random seed, (optional)',
-        metavar='n',
-        type=int,
-    )
 
     # annoying part
     bo = False
@@ -3371,7 +3436,7 @@ def parsecmd():
         'mode'                      :   None,
         'vndx'                      :   None,
         'borandom'                  :   None,
-        'boall'                     :   None,
+        'boall'                     :   True,
         'fragments'                 :   None,
         'bool_force_double_check'   :   True,
         'userinputs'                :   True,
@@ -3414,6 +3479,11 @@ def parsecmd():
         stmp = parse_remove_chars(' '.join(args.indexfilelist)).replace(',',' ')
         fdict['indexfilelist'] = stmp.split()
 
+    if 'static' in args and args.static: fdict['mode'] = 'static'
+    if 'separate' in args and args.separate: fdict['boall'] = False
+    if 'vndx' in args: fdict['vndx'] = args.vndx     # be aware of 0.0
+    if 'borandom' in args and args.borandom: fdict['borandom'] = True
+
     if 'bcon' in args and args.bcon:
         fdict['bcon'] = parse_in_line(' '.join(args.bcon),bobcon=True)
     if 'acon' in args and args.acon:
@@ -3427,7 +3497,7 @@ def parsecmd():
     if 'obpar' in args and args.obpar: fdict['obpar'] = True
     if 'oaall' in args and args.no_oaall: fdict['oaall'] = False
     if 'oapar' in args and args.oapar: fdict['oapar'] = True
-    if 'bool_force_double_check' in args and args.no_force_double_check:
+    if 'no_force_double_check' in args and args.no_force_double_check:
         fdict['bool_force_double_check'] = False
     if 'no_userinputs' in args and args.no_userinputs: fdict['userinputs'] = False
     if 'fname' in args and args.fname: fdict['fname'] = args.fname
