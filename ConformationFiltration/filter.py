@@ -7,6 +7,7 @@ import argparse
 import matplotlib.pyplot as plt
 import tempfile
 import random
+import time
 
 
 FEATURES = [
@@ -65,6 +66,8 @@ FEATURES = [
     'version 3.9.0  : add dynamic and static method in Filtration',
     'version 4.0.0  : RELEASE',
     'version 4.0.1  : add more calculation type in Check',
+    'version 4.1.0  : add report of execution time',
+    'version 4.2.0  : prompt check on memory usage overhead',
 ]
 
 VERSION = FEATURES[-1].split(':')[0].replace('version',' ').strip()
@@ -322,6 +325,9 @@ class ReadFile:
         self.nice = True
         self.info = ''
         self.file = file
+        self.system = []
+        self.energy = []
+        self.debug = True if debug is True else False
 
         # decide file format
         if ext is None:
@@ -335,10 +341,8 @@ class ReadFile:
 
         if self.ext not in ['txt','xsf','xyz']:
             self.nice = False
-            self.info = 'Fatal: file format not support: {:}'.format(ext)
+            self.info = 'Fatal: file not support: {:}'.format(self.file)
             return
-
-        self.debug = True if debug is True else False
 
     def run(self):
         """process input file
@@ -351,9 +355,7 @@ class ReadFile:
 
             they are equivalent
         """
-        self.system = []
-        self.energy = []
-
+        if self.debug: print('Note: reading data from file: {:}'.format(self.file))
         prolist,enelist,errlist = getattr(self,'read_'+self.ext)()
         if not len(prolist): return
 
@@ -420,19 +422,24 @@ class ReadFile:
     def read_xsf(self):
         with open(self.file,mode='rt') as f:
             profile = f.readlines()
-
+        
         promol = []
         i = 0
         while i < len(profile):
-            line = profile[i]
-            if line.find('#') != -1:
+            sub = profile[i].strip()
+            if not len(sub):
+                i += 1
+                continue
+            if sub[0] == '#':
+                ls = [[sub,i], ]
                 j = i + 1
-                ls = [[line.strip(),i], ]
                 while j < len(profile):
-                    sub = profile[j]
-                    if sub.find('#') != -1: break
-                    sub = sub.strip()
-                    if len(sub): ls.append([sub,j])
+                    sub = profile[j].strip()
+                    if not len(sub):
+                        j += 1
+                        continue
+                    if sub[0] == '#': break
+                    ls.append([sub,j])
                     j += 1
                 promol.append(ls)
                 i = j
@@ -442,19 +449,16 @@ class ReadFile:
         prolist = []
         enelist = []
         errlist = []
-        for cnt,mol in enumerate(promol):
+        for mol in promol:
             bo = False
             if len(mol) <= 2:
                 bo = True
                 errnum = mol[0][1] + 1
                 errline = 'Wrong format'
             else:
-                if mol[0][0][0] != '#' == -1 or mol[1][0] != 'ATOMS':
+                if mol[1][0] != 'ATOMS':
                     bo = True
-                    if mol[0][0][0] != '#':
-                        errnum = mol[0][1] + 1
-                    else:
-                        errnum = mol[1][1] + 1
+                    errnum = mol[1][1] + 1
                     errline = 'Wrong format'
 
             if not bo:
@@ -477,17 +481,14 @@ class ReadFile:
                             z = float(atom[3])
                         except ValueError:
                             bo = True
-                            errnum = t[1] + 1
-                            errline = t[0]
                     else:
                         bo = True
+                    if bo:
                         errnum = t[1] + 1
                         errline = t[0]
-                    if bo:
                         break
                     else:
                         ls.append([atom[0],x,y,z])
-
             if bo:
                 errlist.append([errnum,errline])
             else:
@@ -2205,6 +2206,19 @@ def plot_save_image(ini,fin=None,dt=None,fname=None,key=None):
     return True
 
 
+def getrealsizeof(o):
+    """recursively get the real size of built-in objects, unit in bytes
+    """
+    tot = sys.getsizeof(o)
+    if isinstance(o,(int,str,float)):
+        return tot
+    if isinstance(o,(list,tuple)):
+        return tot + sum([getrealsizeof(i) for i in o])
+    if isinstance(o,dict):
+        return tot + sum(getrealsizeof(k)+getrealsizeof(v) for k,v in o.items())
+    return tot
+
+
 class BulkProcess:
     """bulk process for datafilelist based on indexfilelist
 
@@ -2226,6 +2240,7 @@ class BulkProcess:
                 bool_force_double_check=None,*args,**kwargs):
         self.nice = True
         self.info = ''
+        self.mytime = time.time()
         self.datafilelist = []
         if datafilelist is not None:
             for f in datafilelist:
@@ -2252,8 +2267,54 @@ class BulkProcess:
         self.kwargs = kwargs
 
     def run(self,debug=None):
+        fsize = sum([os.stat(i).st_size for i in self.datafilelist])
+        fsize += sum([os.stat(i).st_size for i in self.indexfilelist])
+        # set warning of maximum valid file size
+        memmax = 500
+        if fsize/1024/1024 > memmax:
+            rsize = 0
+            msize = 0
+            fsize = 0
+            total = 100000
+            cnt = 0
+            for file in [*self.datafilelist, *self.indexfilelist]:
+                if not (file.endswith('.xyz') or file.endswith('.xsf') or file.endswith('.txt')):
+                    continue
+                fsize += os.stat(file).st_size
+                if cnt > total: continue
+                profile = []
+                with open(file,mode='rt') as f:
+                    while True:
+                        line = f.readline()
+                        if not len(line): break
+                        profile.append(line)
+                        if cnt > total: break
+                        cnt += 1
+                ftmp = tempfile.NamedTemporaryFile()
+                ftmp.write(''.join(profile).encode('utf-8'))
+                ftmp.flush()
+                rf = ReadFile(ftmp.name,ext=file[file.rfind('.')+1:],debug=False)
+                if len(profile) < 3000: rf.nice = False
+                if rf.nice:
+                    rf.run()
+                    if len(rf.system):
+                        rsize += os.stat(ftmp.name).st_size
+                        msize += getrealsizeof(rf.system) + getrealsizeof(rf.energy)
+                ftmp.close()
+            
+            if fsize/1024/1024 > memmax and rsize > 1.0:
+                # convert to MB, get the 1.2 times memory
+                fsize = fsize / rsize * msize / 1000 / 1000 * 1.2
+                print('Warning: your input is super large')
+                print('Warning: memory requested roughly will be: {:} MB'.format(round(fsize,2)))
+                print('Be sure that you want to continue? y/yes, else not. Input: ',end='')
+                if input().lower() not in ['y','yes']:
+                    print('Note: you decided to quit, nothing will be processed')
+                    return
+                print()
+
         systemlist,energylist = self.get_datalist(self.datafilelist)
-        if not len(systemlist):
+        if not sum([len(i) for i in systemlist]):
             self.nice = False
             self.info = 'Fatal: no inputs after process'
             return
@@ -2264,7 +2325,8 @@ class BulkProcess:
             sysndxlist,tmp = self.get_datalist(self.indexfilelist)
 
         # connections only need to be calculated once
-        self.get_connections(systemlist[0][0])
+        choose = [i for i in systemlist if len(i)]
+        self.get_connections(choose[0][0])
         if not self.nice: return
 
         # to make cross filtration happen, sysndxlist should be at the first
@@ -2473,6 +2535,11 @@ class BulkProcess:
         ftot = file_gen_new('bulk-process-info')
         print('Note: please check summary file for more info: < {:} >'.format(ftot))
         with open(ftot,'wt') as f:
+            f.write('Note: starting  time: {:}\n'.format(time.ctime(self.mytime)))
+            now = time.time()
+            f.write('Note: finishing time: {:}\n'.format(time.ctime(now)))
+            minutes = round((now-self.mytime)/60.0,2)
+            f.write('Note: execution time: {:} minutes\n'.format(minutes))
             f.write('Note: current work path:\n')
             f.write('  => {:}\n'.format(os.path.abspath('.')))
             f.write('Note: random seed: {:}\n'.format(self.seed))
@@ -2583,11 +2650,13 @@ class BulkProcess:
         energylist = []
         for f in filelist:
             rf = ReadFile(f)
-            rf.run()
-            print('Note: for file < {:} >, number of inputs < {:} >'.format(f,len(rf.system)))
-            if len(rf.system):
-                datalist.append(rf.system)
-                energylist.append(rf.energy)
+            if rf.nice:
+                rf.run()
+                print('Note: for file < {:} >, number of inputs < {:} >'.format(f,len(rf.system)))
+            else:
+                print(rf.info)
+            datalist.append(rf.system)
+            energylist.append(rf.energy)
         return datalist,energylist
 
     def get_connections(self,system):
@@ -3524,9 +3593,12 @@ def parsecmd():
     if 'nmranges' in args and args.nmranges: fdict['nmranges'] = args.nmranges
     if 'seed' in args and args.seed: fdict['seed'] = args.seed
 
+    print('Note: time: {:}'.format(time.ctime()))
     if 'command' in args:
+        print('Note: processing plot ...')
         PS = PlotSamples(**fdict)
     else:
+        print('Note: processing data files ...')
         PS = BulkProcess(**fdict)
     if not PS.nice:
         print(PS.info)
