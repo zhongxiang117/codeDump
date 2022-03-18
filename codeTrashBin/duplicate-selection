@@ -1,0 +1,16 @@
+#!/bin/bash
+
+fname=$(basename ${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS})
+base=${fname%\.*}
+ext=${fname##*\.}
+pdir=${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS%\/*}
+
+for i in {1..1000}; do
+    new="$base-$i.$ext"
+    if [[ ! -f "$pdir/$new" ]]; then break; fi
+done
+
+cp -rf ${NAUTILUS_SCRIPT_SELECTED_FILE_PATHS} "$pdir/$new"
+
+
+
