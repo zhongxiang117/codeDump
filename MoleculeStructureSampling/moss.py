@@ -14,6 +14,7 @@ FEATURES = [
     'version 0.2    : add ClosedForm',
     'version 0.3    : add unified ParConfig',
     'version 0.4    : add func translation',
+    'version 0.4.1  : small fix on quaternion maxtrix',
 ]
 
 
@@ -980,7 +981,7 @@ class ClosedForm:
 
         M[0][0] = 1 - 2 * (V[2]*V[2] + V[3]*V[3])
         M[0][1] = 2 * (V[1]*V[2] - V[3]*V[0])
-        M[0][2] = 2 * (V[0]*V[3] + V[2]*V[0])
+        M[0][2] = 2 * (V[1]*V[3] + V[2]*V[0])
 
         M[1][0] = 2 * (V[1]*V[2] + V[3]*V[0])
         M[1][1] = 1 - 2 * (V[1]*V[1] + V[3]*V[3])
