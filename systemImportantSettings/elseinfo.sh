@@ -235,5 +235,24 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #   options = "metadata"
 
 
+# vscode remote server
+#
+# 1. generate a ssh key
+#ssh-keygen -t rsa -b 4096 -f ~/.ssh/vscode_remote -C "vscode remote"
+#ssh-keygen -t rsa -f ~/.ssh/vscode_remote -C "vscode remote"
+#
+# 2. in remote server, copy `vscode_remote.pub` content to 
+#       user@ip:$HOME/.ssh/authorized_keys
+#
+# 3. login remote server inside vscode
+# if failed, with XHR error, manually install server
+#   a) in local:
+#       code --version  # get "commitid": af28b32d7e553898b2a91af498b1fb666fdebe0c
+#   b) in remote:
+#       mkdir -p $HOME/.vscode-server/bin/${commitid}
+#       wget https://update.code.visualstudio.com/commit:${commitid}/server-linux-x64/stable
+#       tar -xf stable  # results will be a folder: server-linux-64
+#                       # move all its contents to commitid folder
+#       mv server-linux-x64/* $HOME/.vscode-server/bin/${commitid}
 
 
