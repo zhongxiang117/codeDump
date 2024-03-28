@@ -243,6 +243,10 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #
 # 2. in remote server, copy `vscode_remote.pub` content to 
 #       user@ip:$HOME/.ssh/authorized_keys
+#    Care of permissions (otherwise not work):
+#       chmod 700 ~/.ssh                    # drwx------
+#       chmod 600 ~/.ssh/authorized_keys    # -rw-------
+#       chmod 644 ~/.ssh/known_hosts        # -rw-r--r--   (not need)
 #
 # 3. login remote server inside vscode
 # if failed, with XHR error, manually install server
@@ -254,5 +258,6 @@ alias byte-order-mark="echo '# -*- coding: utf-8 -*-'"
 #       tar -xf stable  # results will be a folder: server-linux-64
 #                       # move all its contents to commitid folder
 #       mv server-linux-x64/* $HOME/.vscode-server/bin/${commitid}
+
 
 
