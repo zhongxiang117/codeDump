@@ -1,0 +1,5 @@
+this file is used to save data file
+
+to correctly read data files, they have to have the name in a format:
+
+"data-number.txt"

@@ -1,0 +1,11 @@
+[good]
+heterodox  gist
+
+
+[hard]
+grasping  grouse  harangue  hail  harrow  glib  gully  giddy  gratuitous  grim  gustatory
+gulp  grouch  hie  hedge  hirsute  goad  gobble  grotto  @  glimmer  gloat  hack
+grovel  gristle  hectic  hoary  grease  heckle  grievance  hereditary  gimmick  harness
+grisly  gust  gripe
+
+
