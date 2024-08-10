@@ -9,7 +9,8 @@ filetype off                " force reloading *after* pathogen loaded
 
 filetype plugin indent on   " Enable indentation rules that are file-type specific.
 
-
+set fencs=utf-8,GB18030,ucs-bom,default,latin1
+set t_u7=
 
 set autoindent          " New lines inherit the indentation of previous lines.
 set expandtab           " Convert tabs to spaces.
